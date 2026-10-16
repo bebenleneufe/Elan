@@ -1,0 +1,27 @@
+{
+  "id": "/Elan/?pwa=v3",
+  "name": "Élan 30+",
+  "short_name": "Élan 30+",
+  "description": "Programme progressif de remise en forme sur 28 jours au poids du corps sans matériel.",
+  "lang": "fr",
+  "start_url": "./?pwa=v3",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
