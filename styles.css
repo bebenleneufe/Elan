@@ -2000,7 +2000,7 @@ a,
 }
 
 /* ==========================================================================
-   NAVEGACIÓN MÓVIL INFERIOR Y MEDIA QUERIES (1440px, 1024px, 768px, 375px)
+   NAVEGACIÓN MÓVIL INFERIOR Y OPTIMIZACIÓN MÓVIL NATIVA (1024px, 768px, 375px)
    ========================================================================== */
 .mobile-bottom-nav {
   display: none;
@@ -2013,84 +2013,519 @@ a,
   .rest-split-grid {
     grid-template-columns: 1fr;
   }
-
-  .integrated-mode-bar {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
+/* Se optimiza toda la interfaz móvil para que funcione como una app nativa ergonómica */
 @media (max-width: 768px) {
+  :root {
+    --header-height: 60px;
+    --mobile-nav-height: 64px;
+  }
+
   body {
-    padding-bottom: calc(var(--mobile-nav-height) + 1.5rem);
+    padding-top: var(--header-height);
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 1rem);
+  }
+
+  .header-inner {
+    padding: 0 0.9rem;
+    gap: 0.5rem;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .brand-logo svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .brand-title {
+    font-size: 0.95rem;
+  }
+
+  .brand-tag {
+    display: none;
+  }
+
+  .header-right {
+    gap: 0.4rem;
+  }
+
+  .streak-pill {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
   }
 
   .desktop-nav {
     display: none;
   }
 
+  /* Barra inferior translúcida con soporte para área segura de iOS/Android */
   .mobile-bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: var(--mobile-nav-height);
-    background-color: var(--bg-surface);
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    background-color: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+    backdrop-filter: blur(16px);
     border-top: 1px solid var(--border-color);
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.75rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.5rem;
     z-index: 200;
   }
 
   .mobile-bottom-nav .nav-btn {
     flex-direction: column;
     justify-content: center;
-    gap: 0.2rem;
+    gap: 0.18rem;
     padding: 0.3rem;
-    font-size: 0.72rem;
-    border-radius: var(--radius-sm);
+    font-size: 0.73rem;
+    border-radius: var(--radius-md);
+  }
+
+  .mobile-bottom-nav .nav-btn.is-active {
+    background-color: var(--primary-soft);
+    color: var(--primary);
+    box-shadow: none;
   }
 
   .mobile-bottom-nav .nav-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 19px;
+    height: 19px;
   }
 
-  .week-tabs-nav {
-    grid-template-columns: repeat(2, 1fr);
+  .main-container {
+    padding: 0.9rem 0.85rem 1.5rem;
   }
 
+  .bento-dashboard,
+  .bento-hero-split {
+    gap: 1rem;
+  }
+
+  /* Tarjeta Hero compacta y táctil en móvil */
+  .hero-dark-panel {
+    padding: 1.15rem;
+    border-radius: var(--radius-lg);
+    gap: 1.15rem;
+  }
+
+  .program-roadmap-bar {
+    padding: 0.6rem;
+    gap: 0.55rem;
+  }
+
+  .roadmap-weeks-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .roadmap-weeks-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  .prog-week-pill {
+    padding: 0.35rem 0.2rem;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .roadmap-week-tag {
+    display: none;
+  }
+
+  .btn-back-current {
+    width: 100%;
+    text-align: center;
+    padding: 0.38rem;
+  }
+
+  .roadmap-days-row {
+    gap: 0.28rem;
+  }
+
+  .prog-day-step {
+    padding: 0.38rem 0.15rem;
+    gap: 0.2rem;
+  }
+
+  .step-j-dot {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
+
+  .hero-body-content {
+    gap: 0.65rem;
+  }
+
+  .hero-display-title {
+    font-size: 1.55rem;
+    line-height: 1.15;
+  }
+
+  .hero-display-desc {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  /* Se mantienen las 3 estadísticas en una sola fila horizontal compacta para ahorrar espacio vertical */
   .hero-glass-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.45rem;
+    margin-top: 0.15rem;
+  }
+
+  .glass-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding: 0.6rem 0.55rem;
+  }
+
+  .glass-stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .glass-stat-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .glass-stat strong {
+    font-size: 0.84rem;
+  }
+
+  .glass-stat span {
+    font-size: 0.66rem;
+    line-height: 1.15;
+  }
+
+  .hero-footer-actions {
+    gap: 0.8rem;
+    padding-top: 0.85rem;
+  }
+
+  .hero-level-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .hero-level-label {
+    font-size: 0.76rem;
+  }
+
+  .hero-level-segmented {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+  }
+
+  .seg-btn {
+    padding: 0.42rem 0.25rem;
+    font-size: 0.74rem;
+    text-align: center;
+  }
+
+  .btn-hero-launch {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+    border-radius: var(--radius-md);
+  }
+
+  .launch-play-circle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .launch-texts strong {
+    font-size: 0.95rem;
+  }
+
+  .launch-texts small {
+    font-size: 0.72rem;
+  }
+
+  /* Lista de ejercicios de la sesión en una sola línea limpia por fila */
+  .hero-circuit-panel,
+  .bento-card {
+    padding: 1.1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .circuit-panel-header h2,
+  .bento-title {
+    font-size: 1.05rem;
+  }
+
+  .circuit-row {
+    grid-template-columns: 24px 52px 1fr auto;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .circuit-step-num {
+    width: 24px;
+    height: 24px;
+    font-size: 0.72rem;
+  }
+
+  .circuit-gif-thumb {
+    width: 52px;
+    height: 44px;
+  }
+
+  .circuit-info strong {
+    font-size: 0.84rem;
+  }
+
+  .circuit-info span {
+    font-size: 0.7rem;
+  }
+
+  .circuit-badge span {
+    padding: 0.22rem 0.5rem;
+    font-size: 0.72rem;
+  }
+
+  /* Calendario semanal y KPIs en móvil */
+  .bento-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  .week-strip-grid {
+    gap: 0.3rem;
+  }
+
+  .week-day-pill {
+    padding: 0.5rem 0.15rem;
+    gap: 0.3rem;
+  }
+
+  .week-day-name {
+    font-size: 0.65rem;
+  }
+
+  .week-day-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
   }
 
   .bento-mini-kpis {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 420px) {
-  .main-container {
-    padding: 1rem 0.85rem 2.5rem;
+    gap: 0.5rem;
   }
 
-  .hero-dark-panel,
-  .hero-circuit-panel,
-  .bento-card {
+  /* Filtros deslizables horizontalmente en el diccionario de ejercicios */
+  .clean-page-header {
     padding: 1.15rem;
+    border-radius: var(--radius-lg);
   }
 
-  .hero-display-title {
-    font-size: 1.65rem;
+  .page-title {
+    font-size: 1.35rem;
   }
 
-  .circuit-row {
-    grid-template-columns: 24px 52px 1fr;
+  .filter-tabs-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
-  .circuit-badge {
-    grid-column: 3;
-    justify-self: start;
+  .filter-tabs-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.48rem 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  /* ========================================================================
+     REPRODUCTOR DE ENTRENAMIENTO A PANTALLA COMPLETA EN MÓVIL
+     Se coloca el GIF arriba y el cronómetro + botón de acción inmediatamente
+     debajo (sin necesidad de hacer scroll) usando display: contents y order.
+     ======================================================================== */
+  .player-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .player-modal {
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    padding: 0.75rem 0.95rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.75rem;
+  }
+
+  .player-topbar {
+    padding-bottom: 0.6rem;
+    gap: 0.5rem;
+  }
+
+  .player-top-left {
+    gap: 0.45rem;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .step-dots-bar {
+    gap: 0.28rem;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .step-dot-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .studio-main-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .studio-visual-column {
+    display: contents;
+  }
+
+  .studio-title-block {
+    order: 1;
+  }
+
+  .player-ex-title {
+    font-size: 1.25rem;
+    line-height: 1.18;
+  }
+
+  .player-gif-stage {
+    order: 2;
+    height: 175px;
+    padding: 0.45rem;
+    border-radius: var(--radius-md);
+  }
+
+  /* El panel de acción y cronómetro sube justo debajo del GIF para estar siempre visible */
+  .studio-action-panel {
+    order: 3;
+    padding: 0.95rem;
+    border-radius: var(--radius-lg);
+    gap: 0.65rem;
+  }
+
+  .ring-timer-wrap {
+    width: 132px;
+    height: 132px;
+  }
+
+  .timer-ring-svg {
+    width: 132px;
+    height: 132px;
+  }
+
+  .timer-display-giant {
+    font-size: 2.15rem;
+  }
+
+  .timer-display-giant span {
+    font-size: 1rem;
+  }
+
+  .countdown-big-number {
+    font-size: 3.2rem;
+  }
+
+  .phase-helper-text {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .btn-start-giant {
+    padding: 0.85rem 1rem;
+    font-size: 0.88rem;
+    border-radius: var(--radius-md);
+  }
+
+  .studio-variant-box {
+    order: 4;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .variant-pills-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .level-chip {
+    text-align: center;
+    padding: 0.3rem 0.25rem;
+  }
+
+  .studio-cues-list {
+    order: 5;
+    gap: 0.38rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .studio-cues-list li {
+    font-size: 0.8rem;
+  }
+
+  /* Pantalla de descanso compacta en móvil */
+  .rest-split-grid {
+    gap: 0.85rem;
+  }
+
+  .rest-timer-panel {
+    padding: 0.85rem;
+    gap: 0.65rem;
+  }
+
+  .rest-next-card {
+    padding: 0.9rem;
+  }
+
+  .rest-next-gif {
+    height: 135px;
+  }
+
+  .toast-notification {
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    left: 1rem;
+    right: 1rem;
+    justify-content: center;
   }
 }
 
@@ -2104,3 +2539,4 @@ a,
     scroll-behavior: auto !important;
   }
 }
+
