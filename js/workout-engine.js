@@ -7,6 +7,37 @@ window.WorkoutEngine = (function createWorkoutEngine() {
   let activeSession = null;
   let intervalId = null;
   let onStateChangeCallback = null;
+  let wakeLockSentinel = null;
+
+  /**
+   * Se mantiene la pantalla del móvil encendida durante el entrenamiento mediante Wake Lock API
+   * para evitar que el teléfono se bloquee en mitad de una plancha o serie cronometrada.
+   */
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLockSentinel) {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+          wakeLockSentinel = null;
+        });
+      }
+    } catch (_) {
+      // Se ignora si el navegador o el modo ahorro de batería bloquea Wake Lock
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLockSentinel) {
+      wakeLockSentinel.release().catch(() => {});
+      wakeLockSentinel = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && activeSession && activeSession.status === 'running') {
+      requestWakeLock();
+    }
+  });
 
   function clearTimer() {
     if (intervalId) {
@@ -156,6 +187,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       }
     } else {
       activeSession.status = 'completed';
+      releaseWakeLock();
       window.AudioFeedback.playVictory();
       window.AppLogger.info({ id: activeSession.template.id }, 'Workout steps finished');
       notifyUpdate();
@@ -168,6 +200,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     },
     startWorkout(templateId, options) {
       clearTimer();
+      requestWakeLock();
       const state = window.AppStorage.getState();
       const template = window.AppData.getTemplateById(templateId);
       const opts = options || {};
@@ -236,6 +269,15 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       if (!activeSession || activeSession.status === 'completed') return;
       advanceStep();
     },
+    stepPrevExercise() {
+      if (!activeSession || activeSession.status === 'completed') return;
+      for (let i = activeSession.currentStepIndex - 1; i >= 0; i -= 1) {
+        if (activeSession.steps[i].stepType === 'work') {
+          this.JumpToExerciseIndex(i);
+          return;
+        }
+      }
+    },
     JumpToExerciseIndex(targetStepIndex) {
       if (!activeSession || activeSession.status === 'completed') return;
       if (targetStepIndex >= 0 && targetStepIndex < activeSession.steps.length) {
@@ -266,6 +308,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     },
     abortWorkout() {
       clearTimer();
+      releaseWakeLock();
       activeSession = null;
     },
     getActiveSession() {

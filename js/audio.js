@@ -104,6 +104,17 @@ window.AudioFeedback = (function createAudioFeedback() {
     }
   }
 
+  function triggerHaptic(pattern) {
+    if (isMuted) return;
+    try {
+      if (navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    } catch (_) {
+      // Se ignora si el dispositivo o navegador no soporta vibración
+    }
+  }
+
   return {
     setMuted(mutedState) {
       isMuted = Boolean(mutedState);
@@ -115,6 +126,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Toque táctil sutil de madera/cristal al pulsar controles importantes
     playTap() {
+      triggerHaptic(10);
       playHarmonicNote({
         freq: 980,
         endFreq: 420,
@@ -128,6 +140,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Campana suave de bienvenida cuando se presenta un nuevo ejercicio en modo observación
     playStepReady() {
+      triggerHaptic(20);
       playHarmonicNote({
         freq: 587.33, // D5
         duration: 0.22,
@@ -150,9 +163,10 @@ window.AudioFeedback = (function createAudioFeedback() {
       });
     },
 
-    //Pulso percusivo tipo marimba para la cuenta atrás 3, 2, 1
+    // Pulso percusivo tipo marimba para la cuenta atrás 3, 2, 1
     playCountdownTick(secondsLeft) {
       const isLastTick = secondsLeft === 1;
+      triggerHaptic(isLastTick ? 45 : 25);
       playHarmonicNote({
         freq: isLastTick ? 880 : 783.99, // G5 -> A5 en el último segundo
         endFreq: isLastTick ? 860 : 760,
@@ -167,6 +181,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Acorde ascendente cálido y enérgico ("¡GO!") al arrancar el cronómetro de acción
     playStartPhase() {
+      triggerHaptic([45, 35, 80]);
       // Golpe grave cálido de impulso
       playHarmonicNote({
         freq: 146.83, // D3
@@ -196,6 +211,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Señal discreta a mitad de un ejercicio largo para informar sin obligar a mirar la pantalla
     playHalfwayPulse() {
+      triggerHaptic(20);
       playHarmonicNote({
         freq: 659.25, // E5
         duration: 0.11,
@@ -218,6 +234,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Campana zen descendente al terminar el esfuerzo y entrar en descanso
     playRestPhase() {
+      triggerHaptic([30, 40, 30]);
       const restNotes = [880.0, 659.25, 523.25]; // A5 -> E5 -> C5
       restNotes.forEach((freq, idx) => {
         playHarmonicNote({
@@ -235,6 +252,7 @@ window.AudioFeedback = (function createAudioFeedback() {
 
     // Fanfarria armónica cálida (Acorde Mayor 9ª) al completar la sesión del día
     playVictory() {
+      triggerHaptic([70, 50, 70, 50, 160]);
       // Base armónica cálida
       playHarmonicNote({
         freq: 261.63, // C4

@@ -44,7 +44,7 @@
   --radius-pill: 9999px;
 
   --header-height: 70px;
-  --mobile-nav-height: 68px;
+  --mobile-nav-height: 64px;
   --transition-fast: 180ms cubic-bezier(0.16, 1, 0.3, 1);
   --transition-smooth: 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -93,6 +93,7 @@ body {
   padding-top: var(--header-height);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Se asegura enfoque visible para navegación por teclado según la lista de verificación UI */
@@ -277,7 +278,6 @@ a,
   gap: 1.5rem;
 }
 
-/* Bloque principal dividido: Tarjeta Hero oscura a la izquierda + Circuito de GIFs a la derecha */
 .bento-hero-split {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
@@ -285,7 +285,6 @@ a,
   align-items: stretch;
 }
 
-/* Panel izquierdo oscuro de alto impacto */
 .hero-dark-panel {
   background: radial-gradient(circle at 90% 12%, rgba(234, 88, 12, 0.25), transparent 52%),
     linear-gradient(145deg, var(--hero-bg-start), var(--hero-bg-end));
@@ -963,9 +962,8 @@ a,
 }
 
 /* ==========================================================================
-   VISTA 2: PROGRAMA PROGRESIVO DE 28 DÍAS
+   CATÁLOGO DE 14 MOVIMIENTOS CON GIFS ANIMADOS
    ========================================================================== */
-.program-container,
 .catalogue-container {
   display: flex;
   flex-direction: column;
@@ -997,191 +995,6 @@ a,
   margin-top: 0.25rem;
 }
 
-.mini-progress-box {
-  min-width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.week-tabs-nav {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-}
-
-.week-tab-btn {
-  padding: 0.9rem 1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-surface);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.week-tab-btn span {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: var(--text-main);
-}
-
-.week-tab-btn small {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.week-tab-btn:hover {
-  border-color: var(--primary);
-  transform: translateY(-2px);
-}
-
-.week-tab-btn.is-active {
-  background-color: var(--primary);
-  border-color: var(--primary);
-  box-shadow: var(--shadow-primary);
-}
-
-.week-tab-btn.is-active span,
-.week-tab-btn.is-active small {
-  color: #ffffff;
-}
-
-.week-detail-box {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.week-detail-header h2 {
-  font-size: 1.25rem;
-  font-weight: 800;
-}
-
-.week-detail-header p {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.program-days-bento-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1rem;
-}
-
-.day-bento-card {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.15rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0.9rem;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.day-bento-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.day-bento-card.is-current {
-  border: 2px solid var(--primary);
-  background-color: var(--bg-surface);
-}
-
-.day-bento-card.is-completed {
-  border-color: var(--success);
-}
-
-.day-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.day-badge-num {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-
-.status-tag-done,
-.status-tag-today,
-.status-tag-duration {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.74rem;
-  font-weight: 800;
-}
-
-.status-tag-done {
-  background-color: var(--success-soft);
-  color: var(--success);
-}
-
-.status-tag-done svg {
-  width: 13px;
-  height: 13px;
-}
-
-.status-tag-today {
-  background-color: var(--primary-soft);
-  color: var(--primary);
-}
-
-.status-tag-duration {
-  background-color: var(--bg-surface);
-  color: var(--text-muted);
-  border: 1px solid var(--border-color);
-}
-
-.day-card-gif-preview {
-  width: 100%;
-  height: 120px;
-  background-color: #ffffff;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 0.35rem;
-}
-
-.day-card-gif-preview img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.day-card-body h3 {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--text-main);
-}
-
-.day-card-body p {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
-
-/* ==========================================================================
-   VISTA 3: CATÁLOGO DE 14 EJERCICIOS CON GIFS ANIMADOS
-   ========================================================================== */
 .filter-tabs-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1411,6 +1224,7 @@ a,
 }
 
 .player-modal {
+  position: relative;
   width: 100%;
   max-width: 1080px;
   background-color: var(--bg-surface);
@@ -1420,9 +1234,26 @@ a,
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.15rem;
   max-height: 94vh;
   overflow-y: auto;
+}
+
+/* Barra superior continua de avance de la sesión */
+.player-session-progress {
+  width: 100%;
+  height: 5px;
+  background-color: var(--bg-muted);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.player-session-fill {
+  height: 100%;
+  width: var(--progress-pct, 0%);
+  background: linear-gradient(90deg, var(--primary), #10b981);
+  transition: width var(--transition-smooth);
 }
 
 .player-topbar {
@@ -1430,7 +1261,7 @@ a,
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 1rem;
+  padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
 }
@@ -1440,6 +1271,12 @@ a,
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.player-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .player-step-counter {
@@ -1475,7 +1312,7 @@ a,
   background-color: var(--primary);
   border-color: var(--primary);
   color: #ffffff;
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .step-dot-btn.is-past {
@@ -1634,6 +1471,22 @@ a,
   gap: 1rem;
 }
 
+.action-ring-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.action-cta-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
 .phase-status-pill {
   padding: 0.35rem 0.9rem;
   border-radius: var(--radius-pill);
@@ -1664,6 +1517,7 @@ a,
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .timer-ring-svg {
@@ -1926,6 +1780,10 @@ a,
   box-shadow: var(--shadow-lg);
 }
 
+.sheet-drag-handle {
+  display: none;
+}
+
 .modal-header {
   display: flex;
   align-items: flex-start;
@@ -2018,8 +1876,8 @@ a,
 /* Se optimiza toda la interfaz móvil para que funcione como una app nativa ergonómica */
 @media (max-width: 768px) {
   :root {
-    --header-height: 60px;
-    --mobile-nav-height: 64px;
+    --header-height: 58px;
+    --mobile-nav-height: 62px;
   }
 
   body {
@@ -2028,8 +1886,8 @@ a,
   }
 
   .header-inner {
-    padding: 0 0.9rem;
-    gap: 0.5rem;
+    padding: 0 0.85rem;
+    gap: 0.45rem;
   }
 
   .brand-logo {
@@ -2044,7 +1902,7 @@ a,
   }
 
   .brand-title {
-    font-size: 0.95rem;
+    font-size: 0.94rem;
   }
 
   .brand-tag {
@@ -2052,12 +1910,12 @@ a,
   }
 
   .header-right {
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
 
   .streak-pill {
-    padding: 0.32rem 0.65rem;
-    font-size: 0.78rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.76rem;
   }
 
   .icon-btn {
@@ -2081,7 +1939,7 @@ a,
     border-top: 1px solid var(--border-color);
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    padding: 0.35rem 0.75rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.3rem 0.75rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
     gap: 0.5rem;
     z-index: 200;
   }
@@ -2089,9 +1947,9 @@ a,
   .mobile-bottom-nav .nav-btn {
     flex-direction: column;
     justify-content: center;
-    gap: 0.18rem;
-    padding: 0.3rem;
-    font-size: 0.73rem;
+    gap: 0.16rem;
+    padding: 0.25rem;
+    font-size: 0.72rem;
     border-radius: var(--radius-md);
   }
 
@@ -2107,30 +1965,30 @@ a,
   }
 
   .main-container {
-    padding: 0.9rem 0.85rem 1.5rem;
+    padding: 0.85rem 0.8rem 1.5rem;
   }
 
   .bento-dashboard,
   .bento-hero-split {
-    gap: 1rem;
+    gap: 0.95rem;
   }
 
   /* Tarjeta Hero compacta y táctil en móvil */
   .hero-dark-panel {
-    padding: 1.15rem;
+    padding: 1.1rem;
     border-radius: var(--radius-lg);
-    gap: 1.15rem;
+    gap: 1.05rem;
   }
 
   .program-roadmap-bar {
-    padding: 0.6rem;
-    gap: 0.55rem;
+    padding: 0.55rem;
+    gap: 0.5rem;
   }
 
   .roadmap-weeks-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.45rem;
+    gap: 0.4rem;
   }
 
   .roadmap-weeks-tabs {
@@ -2141,7 +1999,7 @@ a,
   }
 
   .prog-week-pill {
-    padding: 0.35rem 0.2rem;
+    padding: 0.35rem 0.15rem;
     font-size: 0.7rem;
     text-align: center;
   }
@@ -2153,16 +2011,16 @@ a,
   .btn-back-current {
     width: 100%;
     text-align: center;
-    padding: 0.38rem;
+    padding: 0.36rem;
   }
 
   .roadmap-days-row {
-    gap: 0.28rem;
+    gap: 0.25rem;
   }
 
   .prog-day-step {
-    padding: 0.38rem 0.15rem;
-    gap: 0.2rem;
+    padding: 0.36rem 0.1rem;
+    gap: 0.18rem;
   }
 
   .step-j-dot {
@@ -2172,66 +2030,66 @@ a,
   }
 
   .hero-body-content {
-    gap: 0.65rem;
+    gap: 0.6rem;
   }
 
   .hero-display-title {
-    font-size: 1.55rem;
+    font-size: 1.5rem;
     line-height: 1.15;
   }
 
   .hero-display-desc {
-    font-size: 0.85rem;
-    line-height: 1.4;
+    font-size: 0.84rem;
+    line-height: 1.38;
   }
 
   /* Se mantienen las 3 estadísticas en una sola fila horizontal compacta para ahorrar espacio vertical */
   .hero-glass-stats {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.45rem;
-    margin-top: 0.15rem;
+    margin-top: 0.1rem;
   }
 
   .glass-stat {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.35rem;
-    padding: 0.6rem 0.55rem;
+    gap: 0.3rem;
+    padding: 0.55rem 0.5rem;
   }
 
   .glass-stat-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
   }
 
   .glass-stat-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
 
   .glass-stat strong {
-    font-size: 0.84rem;
+    font-size: 0.82rem;
   }
 
   .glass-stat span {
-    font-size: 0.66rem;
+    font-size: 0.65rem;
     line-height: 1.15;
   }
 
   .hero-footer-actions {
-    gap: 0.8rem;
-    padding-top: 0.85rem;
+    gap: 0.75rem;
+    padding-top: 0.8rem;
   }
 
   .hero-level-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.4rem;
+    gap: 0.38rem;
   }
 
   .hero-level-label {
-    font-size: 0.76rem;
+    font-size: 0.75rem;
   }
 
   .hero-level-segmented {
@@ -2247,7 +2105,7 @@ a,
   }
 
   .btn-hero-launch {
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 0.95rem;
     gap: 0.75rem;
     border-radius: var(--radius-md);
   }
@@ -2258,29 +2116,29 @@ a,
   }
 
   .launch-texts strong {
-    font-size: 0.95rem;
+    font-size: 0.94rem;
   }
 
   .launch-texts small {
-    font-size: 0.72rem;
+    font-size: 0.71rem;
   }
 
   /* Lista de ejercicios de la sesión en una sola línea limpia por fila */
   .hero-circuit-panel,
   .bento-card {
-    padding: 1.1rem;
+    padding: 1.05rem;
     border-radius: var(--radius-lg);
   }
 
   .circuit-panel-header h2,
   .bento-title {
-    font-size: 1.05rem;
+    font-size: 1.02rem;
   }
 
   .circuit-row {
-    grid-template-columns: 24px 52px 1fr auto;
-    gap: 0.6rem;
-    padding: 0.5rem 0.65rem;
+    grid-template-columns: 24px 50px 1fr auto;
+    gap: 0.55rem;
+    padding: 0.48rem 0.6rem;
   }
 
   .circuit-step-num {
@@ -2290,16 +2148,16 @@ a,
   }
 
   .circuit-gif-thumb {
-    width: 52px;
-    height: 44px;
+    width: 50px;
+    height: 42px;
   }
 
   .circuit-info strong {
-    font-size: 0.84rem;
+    font-size: 0.83rem;
   }
 
   .circuit-info span {
-    font-size: 0.7rem;
+    font-size: 0.69rem;
   }
 
   .circuit-badge span {
@@ -2311,26 +2169,26 @@ a,
   .bento-card-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.45rem;
+    gap: 0.4rem;
   }
 
   .week-strip-grid {
-    gap: 0.3rem;
+    gap: 0.28rem;
   }
 
   .week-day-pill {
-    padding: 0.5rem 0.15rem;
-    gap: 0.3rem;
+    padding: 0.48rem 0.12rem;
+    gap: 0.28rem;
   }
 
   .week-day-name {
-    font-size: 0.65rem;
+    font-size: 0.64rem;
   }
 
   .week-day-circle {
     width: 28px;
     height: 28px;
-    font-size: 0.75rem;
+    font-size: 0.74rem;
   }
 
   .bento-mini-kpis {
@@ -2340,18 +2198,18 @@ a,
 
   /* Filtros deslizables horizontalmente en el diccionario de ejercicios */
   .clean-page-header {
-    padding: 1.15rem;
+    padding: 1.1rem;
     border-radius: var(--radius-lg);
   }
 
   .page-title {
-    font-size: 1.35rem;
+    font-size: 1.3rem;
   }
 
   .filter-tabs-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.2rem;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -2363,14 +2221,15 @@ a,
   .filter-tab {
     white-space: nowrap;
     flex-shrink: 0;
-    padding: 0.48rem 0.9rem;
-    font-size: 0.8rem;
+    padding: 0.46rem 0.85rem;
+    font-size: 0.79rem;
   }
 
   /* ========================================================================
-     REPRODUCTOR DE ENTRENAMIENTO A PANTALLA COMPLETA EN MÓVIL
-     Se coloca el GIF arriba y el cronómetro + botón de acción inmediatamente
-     debajo (sin necesidad de hacer scroll) usando display: contents y order.
+     REPRODUCTOR DE ENTRENAMIENTO MÓVIL NATIVO:
+     - GIF grande arriba (195px)
+     - Anillo de cronómetro + instrucción en fila horizontal compacta
+     - Botón de acción gigante siempre accesible al pulgar
      ======================================================================== */
   .player-overlay {
     padding: 0;
@@ -2383,38 +2242,43 @@ a,
     max-height: 100dvh;
     border-radius: 0;
     border: none;
-    padding: 0.75rem 0.95rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
-    gap: 0.75rem;
+    padding: 0.65rem 0.9rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.65rem;
   }
 
   .player-topbar {
-    padding-bottom: 0.6rem;
-    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    gap: 0.4rem;
   }
 
   .player-top-left {
-    gap: 0.45rem;
-    width: 100%;
-    justify-content: space-between;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
   }
 
   .step-dots-bar {
-    gap: 0.28rem;
+    gap: 0.25rem;
     overflow-x: auto;
     max-width: 100%;
+    scrollbar-width: none;
+  }
+
+  .step-dots-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .step-dot-btn {
-    width: 26px;
-    height: 26px;
-    font-size: 0.72rem;
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
     flex-shrink: 0;
   }
 
   .studio-main-grid {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
 
   .studio-visual-column {
@@ -2426,61 +2290,80 @@ a,
   }
 
   .player-ex-title {
-    font-size: 1.25rem;
-    line-height: 1.18;
+    font-size: 1.2rem;
+    line-height: 1.16;
   }
 
   .player-gif-stage {
     order: 2;
-    height: 175px;
-    padding: 0.45rem;
+    height: 190px;
+    padding: 0.4rem;
     border-radius: var(--radius-md);
   }
 
-  /* El panel de acción y cronómetro sube justo debajo del GIF para estar siempre visible */
+  /* Panel de cronómetro horizontal compacto justo debajo del GIF */
   .studio-action-panel {
     order: 3;
-    padding: 0.95rem;
+    padding: 0.85rem;
     border-radius: var(--radius-lg);
     gap: 0.65rem;
   }
 
+  .action-ring-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    text-align: left;
+    gap: 0.9rem;
+  }
+
   .ring-timer-wrap {
-    width: 132px;
-    height: 132px;
+    width: 98px;
+    height: 98px;
   }
 
   .timer-ring-svg {
-    width: 132px;
-    height: 132px;
+    width: 98px;
+    height: 98px;
   }
 
   .timer-display-giant {
-    font-size: 2.15rem;
+    font-size: 1.7rem;
   }
 
   .timer-display-giant span {
-    font-size: 1rem;
+    font-size: 0.88rem;
   }
 
   .countdown-big-number {
-    font-size: 3.2rem;
+    font-size: 2.6rem;
+  }
+
+  .ring-unit-label {
+    font-size: 0.68rem;
+    margin-top: 0.1rem;
   }
 
   .phase-helper-text {
     font-size: 0.78rem;
     line-height: 1.35;
+    flex: 1;
+  }
+
+  .live-timer-buttons {
+    flex-wrap: wrap;
+    flex: 1;
   }
 
   .btn-start-giant {
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 0.95rem;
     font-size: 0.88rem;
     border-radius: var(--radius-md);
   }
 
   .studio-variant-box {
     order: 4;
-    padding: 0.65rem 0.75rem;
+    padding: 0.6rem 0.75rem;
   }
 
   .variant-pills-row {
@@ -2490,35 +2373,60 @@ a,
 
   .level-chip {
     text-align: center;
-    padding: 0.3rem 0.25rem;
+    padding: 0.3rem 0.2rem;
   }
 
   .studio-cues-list {
     order: 5;
-    gap: 0.38rem;
-    padding-bottom: 0.5rem;
+    gap: 0.35rem;
+    padding-bottom: 0.4rem;
   }
 
   .studio-cues-list li {
-    font-size: 0.8rem;
+    font-size: 0.79rem;
   }
 
   /* Pantalla de descanso compacta en móvil */
   .rest-split-grid {
-    gap: 0.85rem;
+    gap: 0.75rem;
   }
 
   .rest-timer-panel {
-    padding: 0.85rem;
-    gap: 0.65rem;
+    padding: 0.75rem;
+    gap: 0.55rem;
   }
 
   .rest-next-card {
-    padding: 0.9rem;
+    padding: 0.85rem;
   }
 
   .rest-next-gif {
     height: 135px;
+  }
+
+  /* Modal de detalle de ejercicio estilo Bottom Sheet nativo en móvil */
+  .modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-dialog {
+    max-width: 100%;
+    max-height: 88dvh;
+    border-radius: 24px 24px 0 0;
+    border-bottom: none;
+    padding: 0.75rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.75rem;
+  }
+
+  .sheet-drag-handle {
+    display: block;
+    width: 42px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background-color: var(--border-strong);
+    margin: 0 auto 0.25rem;
+    flex-shrink: 0;
   }
 
   .toast-notification {
@@ -2539,4 +2447,3 @@ a,
     scroll-behavior: auto !important;
   }
 }
-

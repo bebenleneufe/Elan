@@ -468,6 +468,7 @@ window.AppController = (function createAppController() {
     }
 
     const currentStep = session.steps[session.currentStepIndex];
+    const sessionPct = Math.round(((session.currentStepIndex + 1) / session.steps.length) * 100);
 
     const workStepsHtml = session.steps
       .map((s, idx) => {
@@ -492,6 +493,10 @@ window.AppController = (function createAppController() {
       const nextEx = currentStep.nextExercise;
       overlay.innerHTML = `
         <div class="player-modal player-studio">
+          <div class="player-session-progress" aria-hidden="true">
+            <div class="player-session-fill" style="--progress-pct: ${sessionPct}%"></div>
+          </div>
+
           <div class="player-topbar">
             <div class="player-top-left">
               <span class="player-step-counter">JOUR ${session.programDay} • RÉCUPÉRATION</span>
@@ -553,40 +558,46 @@ window.AppController = (function createAppController() {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-prep-countdown">
           <span class="phase-status-pill pill-countdown">Mettez-vous en position !</span>
-          <div class="ring-timer-wrap">
-            <div class="countdown-big-number">${currentStep.prepSeconds}</div>
-            <span class="ring-unit-label">Départ imminent…</span>
+          <div class="action-ring-row">
+            <div class="ring-timer-wrap">
+              <div class="countdown-big-number">${currentStep.prepSeconds}</div>
+              <span class="ring-unit-label">Départ imminent…</span>
+            </div>
+            <p class="phase-helper-text">Placez-vous tranquillement, le chronomètre démarre dans ${currentStep.prepSeconds}s.</p>
           </div>
-          <p class="phase-helper-text">Placez-vous tranquillement, le chronomètre démarre dans ${currentStep.prepSeconds}s.</p>
         </div>
       `;
     } else if (isTimer && currentStep.phase === 'ready') {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-ready-phase">
           <span class="phase-status-pill pill-ready">Étape 1 : Observation &amp; Mise en place</span>
-          <div class="ring-timer-wrap">
-            <svg class="timer-ring-svg" viewBox="0 0 190 190">
-              <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-              <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
-            </svg>
-            <div class="ring-center-content">
-              <div class="timer-display-giant">${currentStep.targetValue}<span>s</span></div>
-              <span class="ring-unit-label">En attente</span>
+          <div class="action-ring-row">
+            <div class="ring-timer-wrap">
+              <svg class="timer-ring-svg" viewBox="0 0 190 190">
+                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
+                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
+              </svg>
+              <div class="ring-center-content">
+                <div class="timer-display-giant">${currentStep.targetValue}<span>s</span></div>
+                <span class="ring-unit-label">En attente</span>
+              </div>
             </div>
+
+            <p class="phase-helper-text">
+              Regardez le GIF animé et placez-vous. Le décompte ne démarre que lorsque vous appuyez ci-dessous :
+            </p>
           </div>
 
-          <p class="phase-helper-text">
-            Regardez l’animation GIF à gauche et placez-vous. Le décompte ne démarre que lorsque vous cliquez ci-dessous :
-          </p>
+          <div class="action-cta-dock">
+            <button type="button" class="btn-start-giant" data-action="begin-exercise-timer">
+              ${window.AppData.ICONS.play}
+              <span>Je suis en position • Lancer (${currentStep.targetValue}s)</span>
+            </button>
 
-          <button type="button" class="btn-start-giant" data-action="begin-exercise-timer">
-            ${window.AppData.ICONS.play}
-            <span>Je suis en position • Lancer (${currentStep.targetValue}s)</span>
-          </button>
-
-          <button type="button" class="btn btn-ghost btn-sm" data-action="skip-step">
-            Passer directement cet exercice →
-          </button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="skip-step">
+              Passer directement cet exercice →
+            </button>
+          </div>
         </div>
       `;
     } else if (isTimer) {
@@ -596,34 +607,38 @@ window.AppController = (function createAppController() {
             ${currentStep.phase === 'paused' ? 'Chronomètre en pause' : 'Étape 2 : En action • Respirez'}
           </span>
 
-          <div class="ring-timer-wrap">
-            <svg class="timer-ring-svg" viewBox="0 0 190 190">
-              <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-              <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
-            </svg>
-            <div class="ring-center-content">
-              <div class="timer-display-giant">${currentStep.remainingSeconds}<span>s</span></div>
-              <span class="ring-unit-label">restantes</span>
+          <div class="action-ring-row">
+            <div class="ring-timer-wrap">
+              <svg class="timer-ring-svg" viewBox="0 0 190 190">
+                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
+                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
+              </svg>
+              <div class="ring-center-content">
+                <div class="timer-display-giant">${currentStep.remainingSeconds}<span>s</span></div>
+                <span class="ring-unit-label">restantes</span>
+              </div>
+            </div>
+
+            <div class="live-timer-buttons">
+              <button type="button" class="btn btn-secondary" data-action="toggle-pause">
+                ${currentStep.phase === 'paused' ? window.AppData.ICONS.play : window.AppData.ICONS.pause}
+                <span>${currentStep.phase === 'paused' ? 'Reprendre' : 'Pause'}</span>
+              </button>
+              <button type="button" class="btn btn-secondary" data-action="add-rest-time">
+                +15s
+              </button>
+              <button type="button" class="btn btn-ghost" data-action="restart-exercise-timer" title="Remettre le chrono à zéro">
+                ${window.AppData.ICONS.rotateCcw}
+              </button>
             </div>
           </div>
 
-          <div class="live-timer-buttons">
-            <button type="button" class="btn btn-secondary" data-action="toggle-pause">
-              ${currentStep.phase === 'paused' ? window.AppData.ICONS.play : window.AppData.ICONS.pause}
-              <span>${currentStep.phase === 'paused' ? 'Reprendre' : 'Pause'}</span>
-            </button>
-            <button type="button" class="btn btn-secondary" data-action="add-rest-time">
-              +15s
-            </button>
-            <button type="button" class="btn btn-ghost" data-action="restart-exercise-timer" title="Remettre le chrono à zéro">
-              ${window.AppData.ICONS.rotateCcw}
+          <div class="action-cta-dock">
+            <button type="button" class="btn-start-giant" data-action="skip-step">
+              ${window.AppData.ICONS.check}
+              <span>Terminer cet exercice • Suivant →</span>
             </button>
           </div>
-
-          <button type="button" class="btn-start-giant" data-action="skip-step">
-            ${window.AppData.ICONS.check}
-            <span>Terminer cet exercice • Suivant →</span>
-          </button>
         </div>
       `;
     } else {
@@ -631,42 +646,57 @@ window.AppController = (function createAppController() {
         <div class="studio-action-panel is-reps-phase">
           <span class="phase-status-pill pill-ready">À votre rythme • Sans chronomètre</span>
 
-          <div class="ring-timer-wrap">
-            <svg class="timer-ring-svg" viewBox="0 0 190 190">
-              <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-              <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
-            </svg>
-            <div class="ring-center-content">
-              <div class="timer-display-giant">${currentStep.targetValue}</div>
-              <span class="ring-unit-label">${ex.unit}</span>
+          <div class="action-ring-row">
+            <div class="ring-timer-wrap">
+              <svg class="timer-ring-svg" viewBox="0 0 190 190">
+                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
+                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
+              </svg>
+              <div class="ring-center-content">
+                <div class="timer-display-giant">${currentStep.targetValue}</div>
+                <span class="ring-unit-label">${ex.unit}</span>
+              </div>
             </div>
+
+            <p class="phase-helper-text">
+              Observez le GIF, mettez-vous en place et réalisez vos <strong>${currentStep.targetValue} ${ex.unit}</strong> proprement à votre rythme.
+            </p>
           </div>
 
-          <p class="phase-helper-text">
-            Observez bien le GIF à gauche, mettez-vous en place et réalisez vos <strong>${currentStep.targetValue} ${ex.unit}</strong> proprement à votre rythme.
-          </p>
-
-          <button type="button" class="btn-start-giant" data-action="skip-step">
-            ${window.AppData.ICONS.check}
-            <span>J’ai terminé mes ${currentStep.targetValue} ${ex.unit} • Suivant →</span>
-          </button>
+          <div class="action-cta-dock">
+            <button type="button" class="btn-start-giant" data-action="skip-step">
+              ${window.AppData.ICONS.check}
+              <span>J’ai terminé mes ${currentStep.targetValue} ${ex.unit} • Suivant →</span>
+            </button>
+          </div>
         </div>
       `;
     }
 
     overlay.innerHTML = `
       <div class="player-modal player-studio">
+        <div class="player-session-progress" aria-hidden="true">
+          <div class="player-session-fill" style="--progress-pct: ${sessionPct}%"></div>
+        </div>
+
         <div class="player-topbar">
           <div class="player-top-left">
-            <span class="player-step-counter">JOUR ${session.programDay} • EXERCICE ${currentStep.exerciseIndex} SUR ${currentStep.totalExercises}</span>
+            <span class="player-step-counter">JOUR ${session.programDay} • EXO ${currentStep.exerciseIndex}/${currentStep.totalExercises}</span>
             <div class="step-dots-bar" aria-label="Navigation entre les exercices">
               ${workStepsHtml}
             </div>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" data-action="abort-workout">
-            ${window.AppData.ICONS.close}
-            <span>Quitter la séance</span>
-          </button>
+          <div class="player-top-actions">
+            ${
+              currentStep.exerciseIndex > 1
+                ? `<button type="button" class="btn btn-ghost btn-sm" data-action="prev-step">← Préc.</button>`
+                : ''
+            }
+            <button type="button" class="btn btn-ghost btn-sm" data-action="abort-workout">
+              ${window.AppData.ICONS.close}
+              <span>Quitter</span>
+            </button>
+          </div>
         </div>
 
         <div class="studio-main-grid">
@@ -715,6 +745,7 @@ window.AppController = (function createAppController() {
 
     modal.innerHTML = `
       <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-ex-title">
+        <div class="sheet-drag-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <div>
             <span class="mode-badge">${ex.categoryLabel} • ${ex.muscles}</span>
@@ -779,6 +810,12 @@ window.AppController = (function createAppController() {
 
   function bindEvents() {
     document.addEventListener('click', (event) => {
+      // Cerrar modal de detalle al tocar el fondo oscuro en móvil
+      if (event.target.id === 'exercise-detail-modal') {
+        event.target.classList.add('is-hidden');
+        return;
+      }
+
       const navBtn = event.target.closest('[data-view]');
       if (navBtn) {
         window.AudioFeedback.playTap();
@@ -813,6 +850,9 @@ window.AppController = (function createAppController() {
       } else if (action === 'restart-exercise-timer') {
         window.AudioFeedback.playTap();
         window.WorkoutEngine.restartCurrentExerciseTimer();
+      } else if (action === 'prev-step') {
+        window.AudioFeedback.playTap();
+        window.WorkoutEngine.stepPrevExercise();
       } else if (action === 'jump-step') {
         window.AudioFeedback.playTap();
         const stepIdx = Number(actionBtn.getAttribute('data-step-index'));
