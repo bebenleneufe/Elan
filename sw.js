@@ -2,13 +2,15 @@
  * Se implementa un Service Worker con caché local de todos los recursos y GIFs animados
  * para que la aplicación instalada en el móvil cargue al instante y funcione incluso sin cobertura.
  */
-const CACHE_NAME = 'elan30-pwa-v1';
+const CACHE_NAME = 'elan30-pwa-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './styles.css',
   './manifest.json',
   './assets/app-icon.svg',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
   './js/logger.js',
   './js/audio.js',
   './js/data.js',
