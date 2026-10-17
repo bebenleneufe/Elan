@@ -83,10 +83,26 @@ window.AppController = (function createAppController() {
     const leadEx = data.getExerciseById(template.main[0]);
     const leadLv = data.getExerciseLevel(leadEx, level);
 
-    const weekSegments = data.SESSION_ROTATION.map((id, i) => {
-      const cls = i < position.sessionInWeek ? 'is-done' : i === position.sessionInWeek ? 'is-current' : '';
-      return `<span class="seg ${cls}"></span>`;
-    }).join('');
+    const plan = window.AppStorage.getDayPlan(state);
+    const dayLetters = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    const weekDays = window.AppStorage.getWeekActivity(state);
+    const daySegments = weekDays
+      .map((day, i) => {
+        const cls = day.strength ? 'is-done' : day.any ? 'is-light' : day.isToday ? 'is-current' : '';
+        const what = day.strength ? 'séance' : day.walk ? 'marche' : day.any ? 'mobilité' : 'rien';
+        return `<span class="day-seg ${cls} ${day.isToday ? 'is-today' : ''}" title="${dayLetters[i]} : ${what}"><span class="seg"></span><span class="day-letter">${dayLetters[i]}</span></span>`;
+      })
+      .join('');
+    const feedTop = (rightLabel) => `
+      <div class="feed-top">
+        <div class="segments day-segments" aria-label="Cette semaine">${daySegments}</div>
+        <p class="caps">
+          <span>${position.cycleName} · semaine ${position.weekIndex + 1}/${position.weeksPerCycle}</span>
+          <span>${rightLabel}</span>
+        </p>
+      </div>
+    `;
+    const nextLabel = plan.next === 'walk' ? 'Demain : marche' : `Demain : séance ${template.letter}`;
 
     const listItem = (title, ids, photoId) => {
       if (!ids.length) return '';
@@ -153,20 +169,76 @@ window.AppController = (function createAppController() {
             })
             .join('')}
         </ul>`
-      : '<p class="empty-note">Ta première séance s’affichera ici.</p>';
+      : '<p class="empty-note">Ta première séance ou marche s’affichera ici.</p>';
 
     const savedScroll = container.scrollTop;
 
+    const isSessionDay = plan.kind === 'strength';
+    const sessionStatus = isSessionDay
+      ? position.isDeload ? 'Semaine légère' : `Séance ${template.letter}`
+      : plan.kind === 'done' && plan.did === 'strength' ? 'Prochaine séance' : `Séance ${template.letter} · plus tard`;
+
+    let dayItem = '';
+    if (plan.kind === 'walk') {
+      dayItem = `
+        <article class="feed-item is-plain is-day" id="feed-today">
+          ${feedTop('Jour de marche')}
+          <div class="feed-content">
+            <div class="feed-text">
+              <div class="count"><span class="count-num">${data.WALK_TARGET_MIN}</span><span class="count-unit">min</span></div>
+              <h1 class="display display-xl">Marche</h1>
+              <p class="lede">D’un bon pas : tu peux parler, pas chanter. Ça entretient le cœur et aide les muscles à récupérer.</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" data-action="walk-start">
+              ${ICONS.play}
+              <span>Lancer la marche</span>
+            </button>
+            <button type="button" class="btn btn-outline btn-block" data-action="walk-log">Déjà faite</button>
+            <p class="feed-hint caps">${ICONS.chevronDown} La séance de demain</p>
+          </div>
+        </article>
+      `;
+    } else if (plan.kind === 'rest') {
+      dayItem = `
+        <article class="feed-item is-plain is-day" id="feed-today">
+          ${feedTop('Jour de repos')}
+          <div class="feed-content">
+            <div class="feed-text">
+              <h1 class="display display-xl">Repos</h1>
+              <p class="lede">Six jours actifs d’affilée : une journée off fait partie du programme, c’est là que le corps progresse.</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-block" data-action="start-workout" data-template-id="mobilite">
+              Mobilité douce · ≈ ${mobilityMin} min
+            </button>
+            <p class="feed-hint caps">${ICONS.chevronDown} La séance reste dispo</p>
+          </div>
+        </article>
+      `;
+    } else if (plan.kind === 'done') {
+      dayItem = `
+        <article class="feed-item is-plain is-day" id="feed-today">
+          ${feedTop(nextLabel)}
+          <div class="feed-content">
+            <div class="feed-text">
+              <h1 class="display display-xl">C’est fait</h1>
+              <p class="lede">${plan.did === 'strength' ? 'Séance validée aujourd’hui.' : 'Marche faite aujourd’hui.'} ${plan.next === 'walk' ? 'Demain : 30 min de marche.' : `Demain : séance ${template.letter}, ${template.title.toLowerCase()}.`}</p>
+            </div>
+            ${
+              plan.did === 'strength'
+                ? `<button type="button" class="btn btn-outline btn-block" data-action="start-workout" data-template-id="mobilite">Mobilité · ≈ ${mobilityMin} min</button>`
+                : ''
+            }
+            <p class="feed-hint caps">${ICONS.chevronDown} Le programme</p>
+          </div>
+        </article>
+      `;
+    }
+
     container.innerHTML = `
-      <article class="feed-item" id="feed-today">
+      ${dayItem}
+      <article class="feed-item" ${isSessionDay ? 'id="feed-today"' : ''}>
         ${mediaHtml(leadLv.photo, `${leadEx.name} : ${leadLv.label}`)}
-        <div class="feed-top">
-          <div class="segments" aria-label="Séances de la semaine">${weekSegments}</div>
-          <p class="caps">
-            <span>${position.cycleName} · semaine ${position.weekIndex + 1}/${position.weeksPerCycle}</span>
-            <span>${position.isDeload ? 'Semaine légère' : `Séance ${template.letter}`}</span>
-          </p>
-        </div>
+        ${isSessionDay ? feedTop(sessionStatus) : `<div class="feed-top"><p class="caps"><span>${sessionStatus}</span></p></div>`}
 
         <div class="rail">
           <button type="button" class="rail-btn" data-action="cycle-level" aria-label="Changer de niveau (actuel : ${level})">
@@ -227,10 +299,11 @@ window.AppController = (function createAppController() {
             <p class="statement">Cycle ${position.cycleIndex + 1} · <em>${position.cycleName}</em></p>
             <p class="statement">Semaine ${position.weekIndex + 1} sur ${position.weeksPerCycle}</p>
             <p class="statement"><em>${weekStreak}</em> semaine${weekStreak > 1 ? 's' : ''} d’affilée</p>
-            <p class="statement">${state.totalWorkouts} séance${state.totalWorkouts > 1 ? 's' : ''} · ${state.totalMinutes} min</p>
+            <p class="statement">${state.totalWorkouts} séance${state.totalWorkouts > 1 ? 's' : ''} · ${state.totalWalks || 0} marche${(state.totalWalks || 0) > 1 ? 's' : ''}</p>
+            <p class="statement">${state.totalMinutes} min au total</p>
           </div>
           <div>
-            <p class="caps">Dernières séances</p>
+            <p class="caps">Derniers jours</p>
             ${historyHtml}
           </div>
           <p class="fine-print">Un cycle bouclé sans séance « trop dure » te fait passer au niveau suivant.</p>
@@ -735,6 +808,164 @@ window.AppController = (function createAppController() {
   }
 
   /* ---------------------------------------------------------------------
+     Marche : chrono basé sur l’heure réelle, sauvegardé pour survivre à
+     l’écran verrouillé et au rechargement de la page.
+     --------------------------------------------------------------------- */
+  const WALK_KEY = 'elan_walk_v1';
+  let walkTimer = null;
+
+  function loadWalk() {
+    try {
+      return JSON.parse(window.localStorage.getItem(WALK_KEY)) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function saveWalk(walk) {
+    try {
+      if (walk) window.localStorage.setItem(WALK_KEY, JSON.stringify(walk));
+      else window.localStorage.removeItem(WALK_KEY);
+    } catch (error) {
+      window.AppLogger.error({ error: String(error) }, 'Failed to persist walk');
+    }
+  }
+
+  function walkElapsedMs(walk) {
+    const end = walk.pausedAt || Date.now();
+    return Math.max(0, end - walk.startedAt - walk.pausedMs);
+  }
+
+  function formatClock(ms) {
+    const total = Math.floor(ms / 1000);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  }
+
+  function isWalkOpen() {
+    const layer = document.getElementById('walk-layer');
+    return Boolean(layer && !layer.classList.contains('is-hidden'));
+  }
+
+  function tickWalk() {
+    const walk = loadWalk();
+    const layer = document.getElementById('walk-layer');
+    if (!walk || !layer) return;
+    const targetMs = D().WALK_TARGET_MIN * 60000;
+    const ms = walkElapsedMs(walk);
+    const clock = layer.querySelector('[data-walk="clock"]');
+    const ratio = layer.querySelector('[data-walk="ratio"]');
+    const status = layer.querySelector('[data-walk="status"]');
+    if (clock) clock.textContent = formatClock(ms);
+    if (ratio) ratio.style.setProperty('--ratio', String(Math.min(1, ms / targetMs)));
+    if (status) {
+      if (walk.pausedAt) status.textContent = 'En pause';
+      else if (ms >= targetMs) status.textContent = 'Objectif atteint · continue si tu veux';
+      else status.textContent = `Encore ${Math.ceil((targetMs - ms) / 60000)} min`;
+    }
+    if (!walk.notified && ms >= targetMs) {
+      walk.notified = true;
+      saveWalk(walk);
+      window.AudioFeedback.playVictory();
+      showToast(`${D().WALK_TARGET_MIN} min, bravo`);
+    }
+  }
+
+  function renderWalkLayer() {
+    const layer = document.getElementById('walk-layer');
+    if (!layer) return;
+    const walk = loadWalk();
+    clearInterval(walkTimer);
+    walkTimer = null;
+
+    if (!walk) {
+      layer.classList.add('is-hidden');
+      layer.setAttribute('aria-hidden', 'true');
+      layer.innerHTML = '';
+      return;
+    }
+
+    const ICONS = D().ICONS;
+    layer.classList.remove('is-hidden');
+    layer.setAttribute('aria-hidden', 'false');
+    layer.innerHTML = `
+      <div class="stage">
+        <div class="player-top">
+          <div class="player-top-row">
+            <span class="caps">Marche · objectif ${D().WALK_TARGET_MIN} min</span>
+            <button type="button" class="icon-btn" data-action="walk-close" aria-label="Terminer la marche">${ICONS.close}</button>
+          </div>
+        </div>
+        <div class="player-bottom walk-bottom">
+          <p class="caps" data-walk="status"></p>
+          <div class="count"><span class="count-num" data-walk="clock">0:00</span></div>
+          <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>
+          <p class="fine-print">Tu peux verrouiller le téléphone : le chrono continue.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-outline" data-action="walk-toggle">${walk.pausedAt ? 'Reprendre' : 'Pause'}</button>
+            <button type="button" class="btn btn-primary" data-action="walk-finish">
+              ${ICONS.check}
+              <span>Terminer</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    tickWalk();
+    walkTimer = setInterval(tickWalk, 1000);
+  }
+
+  function startWalk() {
+    if (!loadWalk()) {
+      saveWalk({ startedAt: Date.now(), pausedMs: 0, pausedAt: null, notified: false });
+    }
+    pushLayer('walk');
+    renderWalkLayer();
+  }
+
+  function toggleWalkPause() {
+    const walk = loadWalk();
+    if (!walk) return;
+    if (walk.pausedAt) {
+      walk.pausedMs += Date.now() - walk.pausedAt;
+      walk.pausedAt = null;
+    } else {
+      walk.pausedAt = Date.now();
+    }
+    saveWalk(walk);
+    renderWalkLayer();
+  }
+
+  function logWalk(minutes) {
+    window.AppStorage.recordWalk(minutes);
+    const home = document.getElementById('view-dashboard');
+    if (home) home.scrollTop = 0;
+    renderAll();
+    showToast(`Marche enregistrée · ${Math.max(1, Math.round(minutes))} min`);
+  }
+
+  function finishWalk(fromHistory) {
+    const walk = loadWalk();
+    if (!walk) return;
+    const minutes = walkElapsedMs(walk) / 60000;
+    saveWalk(null);
+    renderWalkLayer();
+    if (!fromHistory) popLayer('walk');
+    if (minutes >= 1) logWalk(minutes);
+    else showToast('Moins d’une minute : non enregistrée');
+  }
+
+  // Fermer la marche : on propose de l’enregistrer ; renvoie true si la couche est fermée
+  function closeWalkWithConfirm(fromHistory) {
+    const walk = loadWalk();
+    if (!walk) return true;
+    if (walkElapsedMs(walk) >= 60000 && !window.confirm('Terminer la marche et l’enregistrer ?')) {
+      return false;
+    }
+    finishWalk(fromHistory);
+    return true;
+  }
+
+  /* ---------------------------------------------------------------------
      Historial : le bouton « retour » d’Android ferme la couche du dessus
      (fiche, séance, onglet Exercices) au lieu de quitter l’application.
      --------------------------------------------------------------------- */
@@ -763,6 +994,11 @@ window.AppController = (function createAppController() {
 
     if (isSheetOpen() && target !== 'sheet') {
       closeExerciseModal();
+      return;
+    }
+
+    if (isWalkOpen() && target !== 'walk') {
+      if (!closeWalkWithConfirm(true)) pushLayer('walk');
       return;
     }
 
@@ -803,6 +1039,11 @@ window.AppController = (function createAppController() {
     if (currentLayer()) window.history.replaceState({ elan: 'guard' }, '');
     else pushLayer('guard');
     window.addEventListener('popstate', handlePopState);
+    // Une marche en cours (écran rechargé, app rouverte) reprend là où elle en était
+    if (loadWalk()) {
+      pushLayer('walk');
+      renderWalkLayer();
+    }
   }
 
   function cycleStepVariant() {
@@ -890,6 +1131,18 @@ window.AppController = (function createAppController() {
       } else if (action === 'start-workout') {
         window.WorkoutEngine.startWorkout(actionBtn.getAttribute('data-template-id'));
         pushLayer('player');
+      } else if (action === 'walk-start') {
+        window.AudioFeedback.playTap();
+        startWalk();
+      } else if (action === 'walk-log') {
+        logWalk(window.AppData.WALK_TARGET_MIN);
+      } else if (action === 'walk-toggle') {
+        window.AudioFeedback.playTap();
+        toggleWalkPause();
+      } else if (action === 'walk-finish') {
+        finishWalk(false);
+      } else if (action === 'walk-close') {
+        closeWalkWithConfirm(false);
       } else if (action === 'begin-exercise-timer') {
         window.WorkoutEngine.beginCurrentExerciseTimer();
       } else if (action === 'cycle-step-variant') {
@@ -923,6 +1176,10 @@ window.AppController = (function createAppController() {
       if (event.key === 'Escape') {
         if (closeExerciseModal()) {
           popLayer('sheet');
+          return;
+        }
+        if (isWalkOpen()) {
+          closeWalkWithConfirm(false);
           return;
         }
         if (isPlayerOpen() && abortWithConfirm()) popLayer('player');

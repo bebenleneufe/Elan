@@ -1104,3 +1104,65 @@ ul {
   font-weight: 600;
   color: var(--text-faint);
 }
+
+/* Semaine en 7 jours : S = séance, M = marche */
+.day-segments {
+  gap: 6px;
+}
+
+.day-seg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.day-seg .seg {
+  flex: none;
+  width: 100%;
+  height: 3px;
+}
+
+/* Marche ou mobilité : barre pleine mais plus discrète qu’une séance */
+.day-seg.is-light .seg {
+  background-color: rgba(242, 242, 240, 0.6);
+}
+
+.day-seg.is-done .seg {
+  background-color: var(--paper);
+}
+
+.day-seg.is-current .seg {
+  background-color: var(--sand);
+}
+
+.day-letter {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+
+.day-seg.is-today .day-letter {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* Carte du jour sans photo (marche, repos, fait) */
+.feed-item.is-day .feed-content {
+  margin-top: 0;
+}
+
+.feed-item.is-day .count {
+  margin-bottom: 4px;
+}
+
+/* Marche : fond d’encre, horloge en minutes:secondes */
+.walk-layer {
+  background-color: var(--ink);
+}
+
+.walk-bottom .count-num {
+  font-size: clamp(6rem, 34vw, 8rem);
+}

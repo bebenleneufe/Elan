@@ -24,6 +24,7 @@ window.AppStorage = (function createAppStorage() {
       programSessionIndex: 0, // Sesiones del programa completadas (define ciclo, semana y sesión)
       cycleHardCount: 0, // Sesiones juzgadas "intensas" en el ciclo en curso
       totalWorkouts: 0,
+      totalWalks: 0,
       totalMinutes: 0,
       lastActiveDate: null,
       workoutHistory: [],
@@ -82,6 +83,63 @@ window.AppStorage = (function createAppStorage() {
     return streak;
   }
 
+  function isStrengthEntry(h) {
+    return h.counted !== false && h.templateId !== 'marche' && h.templateId !== 'mobilite';
+  }
+
+  function isWalkEntry(h) {
+    return h.templateId === 'marche';
+  }
+
+  /**
+   * Se alterna día de sesión y día de marcha según lo hecho la víspera, sin depender del calendario:
+   * - sesión hecha ayer → hoy marcha; marcha (o nada) ayer → hoy sesión;
+   * - tras 6 días activos seguidos → hoy descanso;
+   * - si hoy ya se hizo algo, se indica qué toca mañana.
+   */
+  function getDayPlan(state) {
+    const today = getTodayDateString();
+    const history = state.workoutHistory;
+    const todays = history.filter((h) => h.date === today);
+
+    if (todays.some(isStrengthEntry)) return { kind: 'done', did: 'strength', next: 'walk' };
+    if (todays.some(isWalkEntry)) return { kind: 'done', did: 'walk', next: 'strength' };
+
+    const activeDates = new Set(history.map((h) => h.date));
+    const cursor = new Date();
+    cursor.setDate(cursor.getDate() - 1);
+    const yesterday = toDateString(cursor);
+    let activeStreak = 0;
+    while (activeDates.has(toDateString(cursor))) {
+      activeStreak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    if (activeStreak >= 6) return { kind: 'rest', next: 'strength' };
+
+    const previous = history.find((h) => h.date < today && (isStrengthEntry(h) || isWalkEntry(h)));
+    if (previous && previous.date === yesterday && isStrengthEntry(previous)) {
+      return { kind: 'walk', next: 'strength' };
+    }
+    return { kind: 'strength', next: 'walk' };
+  }
+
+  function getWeekActivity(state) {
+    const monday = getMondayOf(new Date());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const iso = toDateString(d);
+      const entries = state.workoutHistory.filter((h) => h.date === iso);
+      return {
+        date: iso,
+        isToday: iso === getTodayDateString(),
+        strength: entries.some(isStrengthEntry),
+        walk: entries.some(isWalkEntry),
+        any: entries.length > 0
+      };
+    });
+  }
+
   function countSessionsThisWeek(state) {
     const monday = toDateString(getMondayOf(new Date()));
     return state.workoutHistory.filter((h) => h.counted !== false && h.date >= monday).length;
@@ -91,6 +149,8 @@ window.AppStorage = (function createAppStorage() {
     getTodayDateString,
     getWeeklyStreak,
     countSessionsThisWeek,
+    getDayPlan,
+    getWeekActivity,
     getState() {
       return loadState();
     },
@@ -156,6 +216,27 @@ window.AppStorage = (function createAppStorage() {
       );
 
       return { state, levelUp, cycleCompleted };
+    },
+    recordWalk(minutes) {
+      const state = loadState();
+      const durationMin = Math.max(1, Math.round(minutes));
+      state.totalWalks = (state.totalWalks || 0) + 1;
+      state.totalMinutes += durationMin;
+      state.lastActiveDate = getTodayDateString();
+      state.workoutHistory.unshift({
+        id: `wk-${Date.now()}`,
+        date: getTodayDateString(),
+        timestamp: new Date().toISOString(),
+        templateId: 'marche',
+        title: 'Marche',
+        durationMin,
+        counted: false,
+        rpe: 'optimal'
+      });
+      state.workoutHistory = state.workoutHistory.slice(0, HISTORY_LIMIT);
+      saveState(state);
+      window.AppLogger.info({ durationMin }, 'Walk recorded');
+      return state;
     },
     resetProgress() {
       const fresh = getDefaultState();

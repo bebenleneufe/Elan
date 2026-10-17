@@ -12,7 +12,7 @@ One person: the owner of the app, in their 30s, getting back into exercise after
 
 ## Product Purpose
 
-Élan walks the user through an open-ended bodyweight program: 4-week cycles of 4 sessions a week (A upper, B lower, C upper, D lower), each about 11–17 minutes, plus an optional mobility session. Each session is a guided circuit: warm-up, a main block in 2–3 rounds, then cool-down. Two public-domain photos (start and end of the movement) demonstrate each exercise, timers and rep targets run it, rests come between moves, and audio and haptic cues mark each step. Success means rebuilding the habit without injury and wanting to keep going.
+Élan walks the user through an open-ended bodyweight program: 4-week cycles of 4 sessions a week (A upper, B lower, C upper, D lower), each about 11–17 minutes, plus an optional mobility session. Days alternate: a strength session one day, a 30-minute brisk walk the next (timed in the app, or logged as already done), with a rest day after six active days in a row. The home screen tells the user what today is for. Each session is a guided circuit: warm-up, a main block in 2–3 rounds, then cool-down. Two public-domain photos (start and end of the movement) demonstrate each exercise, timers and rep targets run it, rests come between moves, and audio and haptic cues mark each step. Success means rebuilding the habit without injury and wanting to keep going.
 
 ## Positioning
 

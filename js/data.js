@@ -423,6 +423,9 @@ window.AppData = (function createAppData() {
     return lv.perSide ? `${value} rép. / côté` : `${value} rép.`;
   }
 
+  // Jours sans séance de renforcement : marche d’un bon pas
+  const WALK_TARGET_MIN = 30;
+
   const REST_BETWEEN_EXERCISES = 25;
   const REST_BETWEEN_ROUNDS = 60;
   const TRANSITION_SECONDS = 10;
@@ -450,6 +453,7 @@ window.AppData = (function createAppData() {
     CATEGORY_LABELS,
     EXERCISES,
     WORKOUT_TEMPLATES,
+    WALK_TARGET_MIN,
     REST_BETWEEN_EXERCISES,
     REST_BETWEEN_ROUNDS,
     TRANSITION_SECONDS,
