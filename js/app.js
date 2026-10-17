@@ -164,7 +164,9 @@ window.AppController = (function createAppController() {
           ${history
             .map((h) => {
               const tpl = data.WORKOUT_TEMPLATES.find((t) => t.id === h.templateId);
-              const name = tpl ? (tpl.optional ? tpl.title : `${tpl.letter} · ${tpl.title}`) : h.title;
+              const name = tpl
+                ? tpl.optional ? tpl.title : `${tpl.letter} · ${tpl.title}`
+                : h.distanceM ? `${h.title} · ${formatKm(h.distanceM)}` : h.title;
               return `<li><time datetime="${h.date}">${formatShortDate(h.date)}</time><span>${name}</span><span class="h-dur">${h.durationMin} min</span></li>`;
             })
             .join('')}
@@ -896,6 +898,7 @@ window.AppController = (function createAppController() {
           </div>
         </div>
         <div class="player-bottom walk-bottom">
+          ${treadmillPanelHtml()}
           <p class="caps" data-walk="status"></p>
           <div class="count"><span class="count-num" data-walk="clock">0:00</span></div>
           <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>
@@ -935,8 +938,8 @@ window.AppController = (function createAppController() {
     renderWalkLayer();
   }
 
-  function logWalk(minutes) {
-    window.AppStorage.recordWalk(minutes);
+  function logWalk(minutes, extra) {
+    window.AppStorage.recordWalk(minutes, extra);
     const home = document.getElementById('view-dashboard');
     if (home) home.scrollTop = 0;
     renderAll();
@@ -947,10 +950,15 @@ window.AppController = (function createAppController() {
     const walk = loadWalk();
     if (!walk) return;
     const minutes = walkElapsedMs(walk) / 60000;
+    const totals = walkTreadmillTotals(walk);
+    const T = window.Treadmill;
+    if (T && T.getState().phase === 'ready' && T.getState().running) {
+      T.stop().catch(() => {});
+    }
     saveWalk(null);
     renderWalkLayer();
     if (!fromHistory) popLayer('walk');
-    if (minutes >= 1) logWalk(minutes);
+    if (minutes >= 1) logWalk(minutes, totals.distanceM ? totals : null);
     else showToast('Moins d’une minute : non enregistrée');
   }
 
@@ -963,6 +971,143 @@ window.AppController = (function createAppController() {
     }
     finishWalk(fromHistory);
     return true;
+  }
+
+  /* ---------------------------------------------------------------------
+     Tapis WalkingPad (Bluetooth) dans l’écran de marche
+     --------------------------------------------------------------------- */
+  let showTreadmillLog = false;
+
+  function formatKm(meters) {
+    return `${(meters / 1000).toFixed(2).replace('.', ',')} km`;
+  }
+
+  function walkTreadmillTotals(walk) {
+    const acc = (walk && walk.tm) || { baseDist: 0, baseSteps: 0, lastDist: 0, lastSteps: 0 };
+    return { distanceM: acc.baseDist + acc.lastDist, steps: acc.baseSteps + acc.lastSteps };
+  }
+
+  // Les compteurs du tapis repartent de zéro à chaque arrêt : on cumule pour la marche en cours
+  function accumulateTreadmill(tm) {
+    const walk = loadWalk();
+    if (!walk || !tm.hasTelemetry) return;
+    const acc = walk.tm || { baseDist: 0, baseSteps: 0, lastDist: 0, lastSteps: 0 };
+    if (tm.distanceM + 5 < acc.lastDist) acc.baseDist += acc.lastDist;
+    if (tm.steps + 5 < acc.lastSteps) acc.baseSteps += acc.lastSteps;
+    acc.lastDist = tm.distanceM;
+    acc.lastSteps = tm.steps;
+    walk.tm = acc;
+    saveWalk(walk);
+  }
+
+  function treadmillPanelHtml() {
+    const T = window.Treadmill;
+    if (!T || !T.isSupported()) return '';
+    const ICONS = D().ICONS;
+    const tm = T.getState();
+    const logHtml = showTreadmillLog
+      ? `<div class="tm-log">
+          <pre>${T.getLog().join('\n') || 'Rien pour l’instant.'}</pre>
+          <button type="button" class="btn btn-outline btn-block" data-action="tm-copy-log">Copier le journal</button>
+        </div>`
+      : '';
+    const logLink = `<button type="button" class="tm-log-link" data-action="tm-toggle-log">${showTreadmillLog ? 'Masquer' : 'Journal Bluetooth'}</button>`;
+
+    if (tm.phase === 'connecting') {
+      return `<div class="tm-panel"><p class="caps">Connexion au tapis…</p>${logLink}${logHtml}</div>`;
+    }
+
+    if (tm.phase !== 'ready') {
+      return `
+        <div class="tm-panel">
+          <button type="button" class="btn btn-outline btn-block" data-action="tm-connect">
+            ${ICONS.bluetooth}
+            <span>Connecter le tapis</span>
+          </button>
+          ${tm.error ? `<p class="tm-error">${tm.error}</p>` : ''}
+          ${logLink}${logHtml}
+        </div>
+      `;
+    }
+
+    const totals = walkTreadmillTotals(loadWalk());
+    return `
+      <div class="tm-panel">
+        <div class="tm-live">
+          <span class="tm-speed"><span data-tm="speed">${tm.speedKmh.toFixed(1).replace('.', ',')}</span> <span class="caps">km/h</span></span>
+          <span class="caps" data-tm="meta">${formatKm(totals.distanceM)} · ${totals.steps} pas</span>
+        </div>
+        <div class="tm-controls">
+          <button type="button" class="btn btn-outline tm-step" data-action="tm-slower" aria-label="Moins vite">${ICONS.minus}</button>
+          <button type="button" class="btn ${tm.running ? 'btn-outline' : 'btn-primary'} tm-main" data-action="tm-toggle">
+            ${tm.running ? 'Arrêter' : 'Démarrer'}
+          </button>
+          <button type="button" class="btn btn-outline tm-step" data-action="tm-faster" aria-label="Plus vite">${ICONS.plus}</button>
+        </div>
+        ${logLink}${logHtml}
+      </div>
+    `;
+  }
+
+  function patchTreadmillLive() {
+    const layer = document.getElementById('walk-layer');
+    if (!layer) return;
+    const tm = window.Treadmill.getState();
+    const speed = layer.querySelector('[data-tm="speed"]');
+    const meta = layer.querySelector('[data-tm="meta"]');
+    const totals = walkTreadmillTotals(loadWalk());
+    if (speed) speed.textContent = tm.speedKmh.toFixed(1).replace('.', ',');
+    if (meta) meta.textContent = `${formatKm(totals.distanceM)} · ${totals.steps} pas`;
+  }
+
+  async function treadmillAction(run) {
+    try {
+      await run();
+    } catch (error) {
+      showToast(`Tapis : ${(error && error.message) || error}`);
+    }
+    if (isWalkOpen()) renderWalkLayer();
+  }
+
+  function bindTreadmill() {
+    if (!window.Treadmill) return;
+    window.Treadmill.subscribe((kind, tm) => {
+      if (kind === 'telemetry') accumulateTreadmill(tm);
+      if (!isWalkOpen()) return;
+      if (kind === 'telemetry') patchTreadmillLive();
+      else renderWalkLayer();
+    });
+  }
+
+  function handleTreadmillClick(action) {
+    const T = window.Treadmill;
+    const tm = T.getState();
+    if (action === 'tm-connect') {
+      treadmillAction(() => T.connect());
+    } else if (action === 'tm-toggle') {
+      window.AudioFeedback.playTap();
+      // Le tapis démarre à sa vitesse minimale : on accélère ensuite avec +
+      treadmillAction(() => (tm.running ? T.pause() : T.start()));
+    } else if (action === 'tm-faster' || action === 'tm-slower') {
+      window.AudioFeedback.playTap();
+      const base = tm.targetKmh || tm.speedKmh || tm.minKmh;
+      const next = base + (action === 'tm-faster' ? 0.5 : -0.5);
+      treadmillAction(async () => {
+        const applied = await T.setSpeed(next);
+        showToast(`${applied.toFixed(1).replace('.', ',')} km/h`);
+      });
+    } else if (action === 'tm-toggle-log') {
+      showTreadmillLog = !showTreadmillLog;
+      renderWalkLayer();
+    } else if (action === 'tm-copy-log') {
+      const text = T.getLog().join('\n');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(
+          () => showToast('Journal copié'),
+          () => showToast('Copie impossible')
+        );
+      }
+    }
   }
 
   /* ---------------------------------------------------------------------
@@ -1131,6 +1276,8 @@ window.AppController = (function createAppController() {
       } else if (action === 'start-workout') {
         window.WorkoutEngine.startWorkout(actionBtn.getAttribute('data-template-id'));
         pushLayer('player');
+      } else if (action.indexOf('tm-') === 0) {
+        handleTreadmillClick(action);
       } else if (action === 'walk-start') {
         window.AudioFeedback.playTap();
         startWalk();
@@ -1215,6 +1362,7 @@ window.AppController = (function createAppController() {
         renderWorkoutOverlay(session);
       });
       bindEvents();
+      bindTreadmill();
       initHistory();
       renderAll();
     }

@@ -217,8 +217,9 @@ window.AppStorage = (function createAppStorage() {
 
       return { state, levelUp, cycleCompleted };
     },
-    recordWalk(minutes) {
+    recordWalk(minutes, extra) {
       const state = loadState();
+      const more = extra || {};
       const durationMin = Math.max(1, Math.round(minutes));
       state.totalWalks = (state.totalWalks || 0) + 1;
       state.totalMinutes += durationMin;
@@ -230,12 +231,14 @@ window.AppStorage = (function createAppStorage() {
         templateId: 'marche',
         title: 'Marche',
         durationMin,
+        distanceM: more.distanceM || undefined,
+        steps: more.steps || undefined,
         counted: false,
         rpe: 'optimal'
       });
       state.workoutHistory = state.workoutHistory.slice(0, HISTORY_LIMIT);
       saveState(state);
-      window.AppLogger.info({ durationMin }, 'Walk recorded');
+      window.AppLogger.info({ durationMin, distanceM: more.distanceM }, 'Walk recorded');
       return state;
     },
     resetProgress() {

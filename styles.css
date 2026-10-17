@@ -1166,3 +1166,64 @@ ul {
 .walk-bottom .count-num {
   font-size: clamp(6rem, 34vw, 8rem);
 }
+
+/* Tapis Bluetooth */
+.tm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tm-live {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tm-speed {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tm-controls {
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  gap: 10px;
+}
+
+.tm-step {
+  padding: 0;
+}
+
+.tm-error {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.tm-log-link {
+  align-self: flex-start;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tm-log pre {
+  max-height: 30vh;
+  overflow: auto;
+  margin: 0 0 10px;
+  padding: 10px;
+  background-color: var(--void);
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

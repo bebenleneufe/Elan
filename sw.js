@@ -3,7 +3,7 @@
  * respaldo sin conexión) para que cualquier despliegue en GitHub Pages aparezca inmediatamente
  * en el móvil sin quedar atrapado en una versión antigua de la caché.
  */
-const SHELL_CACHE = 'elan30-shell-v8';
+const SHELL_CACHE = 'elan30-shell-v9';
 const FONT_CACHE = 'elan30-fonts-v1';
 const KNOWN_CACHES = new Set([SHELL_CACHE, FONT_CACHE]);
 
@@ -22,6 +22,7 @@ const SHELL_FILES = [
   './js/data.js',
   './js/storage.js',
   './js/workout-engine.js',
+  './js/treadmill.js',
   './js/app.js',
   './assets/photos/90-90-hamstring/0.jpg',
   './assets/photos/90-90-hamstring/1.jpg',
