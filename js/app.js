@@ -293,6 +293,23 @@ window.AppController = (function createAppController() {
         </div>
       </article>
 
+      ${
+        plan.kind !== 'walk'
+          ? `<article class="feed-item is-plain is-day">
+              <div class="feed-content">
+                <div class="feed-text">
+                  <h2 class="display display-l">Marche libre</h2>
+                  <p class="lede">Quand tu veux, en plus du programme. Pratique aussi pour essayer le tapis.</p>
+                </div>
+                <button type="button" class="btn btn-outline btn-block" data-action="walk-start">
+                  ${ICONS.play}
+                  <span>Lancer une marche</span>
+                </button>
+              </div>
+            </article>`
+          : ''
+      }
+
       <article class="feed-item is-plain" id="feed-progress">
         <div class="plain-content">
           <h2 class="display display-l">Progression</h2>
