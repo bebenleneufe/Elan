@@ -35,7 +35,9 @@ window.AppController = (function createAppController() {
       </div>
       <div class="scrim"></div>
       ${
-        o.stacked
+        o.backdropOnly
+          ? ''
+          : o.stacked
           ? `<div class="media-frame is-stacked">
               <img src="assets/photos/${photo}/0.jpg" alt="${alt} (début)" decoding="async" />
               <img src="assets/photos/${photo}/1.jpg" alt="${alt} (fin)" decoding="async" />
@@ -184,14 +186,15 @@ window.AppController = (function createAppController() {
     let dayItem = '';
     if (plan.kind === 'walk') {
       dayItem = `
-        <article class="feed-item is-plain is-day" id="feed-today">
+        <article class="feed-item" id="feed-today">
+          ${mediaHtml('walking-treadmill', 'Marche sur tapis', { animated: true })}
           ${feedTop('Jour de marche')}
           <div class="feed-content">
             <div class="feed-text">
-              <div class="count"><span class="count-num">${data.WALK_TARGET_MIN}</span><span class="count-unit">min</span></div>
               <h1 class="display display-xl">Marche ${walkProgram.title.toLowerCase()}</h1>
               <p class="lede">${walkProgram.summary.charAt(0).toUpperCase() + walkProgram.summary.slice(1)}.</p>
               <div class="meta-line">
+                <span class="caps">${data.WALK_TARGET_MIN} min</span>
                 ${['easy', 'moderate', 'brisk', 'fast']
                   .filter((pace) => walkProgram.segments.some((s) => s.pace === pace))
                   .map((pace) => `<span class="caps">${data.PACE_LABELS[pace]} ${data.getWalkSpeed(pace, level, state.walkSpeedOffset).toFixed(1).replace('.', ',')}</span>`)
@@ -302,7 +305,8 @@ window.AppController = (function createAppController() {
 
       ${
         plan.kind !== 'walk'
-          ? `<article class="feed-item is-plain is-day">
+          ? `<article class="feed-item">
+              ${mediaHtml('walking-treadmill', 'Marche sur tapis', { animated: true })}
               <div class="feed-content">
                 <div class="feed-text">
                   <h2 class="display display-l">Marche libre</h2>
@@ -1000,6 +1004,7 @@ window.AppController = (function createAppController() {
     layer.setAttribute('aria-hidden', 'false');
     layer.innerHTML = `
       <div class="stage">
+        ${mediaHtml('walking-treadmill', '', { backdropOnly: true })}
         <div class="player-top">
           ${guided ? guided.segments : ''}
           <div class="player-top-row">
