@@ -690,7 +690,7 @@ window.AppController = (function createAppController() {
     if (currentView === 'exercises') renderExercisesView(state);
   }
 
-  function finishWorkout(rpe) {
+  function finishWorkout(rpe, fromHistory) {
     const session = window.WorkoutEngine.getActiveSession();
     if (!session) return;
     const { state, levelUp, cycleCompleted } = window.AppStorage.recordCompletedWorkout({
@@ -702,6 +702,7 @@ window.AppController = (function createAppController() {
     });
     window.WorkoutEngine.abortWorkout();
     renderWorkoutOverlay(null);
+    if (!fromHistory) popLayer('player');
     const home = document.getElementById('view-dashboard');
     if (home) home.scrollTop = 0;
     renderAll();
@@ -723,10 +724,82 @@ window.AppController = (function createAppController() {
     const hasProgress =
       session && (session.currentStepIndex > 0 || session.steps[0].phase !== 'ready');
     if (hasProgress && !window.confirm('Quitter la séance ? Elle ne sera pas validée.')) {
-      return;
+      return false;
     }
     window.WorkoutEngine.abortWorkout();
     renderWorkoutOverlay(null);
+    return true;
+  }
+
+  /* ---------------------------------------------------------------------
+     Historial : le bouton « retour » d’Android ferme la couche du dessus
+     (fiche, séance, onglet Exercices) au lieu de quitter l’application.
+     --------------------------------------------------------------------- */
+  let exitArmedTimer = null;
+
+  function currentLayer() {
+    return (window.history.state && window.history.state.elan) || null;
+  }
+
+  function pushLayer(layer) {
+    window.history.pushState({ elan: layer }, '');
+  }
+
+  // Cierre desde la interfaz: se consume la entrada del historial; popstate no encontrará nada que cerrar
+  function popLayer(layer) {
+    if (currentLayer() === layer) window.history.back();
+  }
+
+  function isSheetOpen() {
+    const sheet = document.getElementById('exercise-detail-modal');
+    return Boolean(sheet && !sheet.classList.contains('is-hidden'));
+  }
+
+  function handlePopState(event) {
+    const target = (event.state && event.state.elan) || null;
+
+    if (isSheetOpen() && target !== 'sheet') {
+      closeExerciseModal();
+      return;
+    }
+
+    const session = window.WorkoutEngine.getActiveSession();
+    if (session && target !== 'player' && target !== 'sheet') {
+      if (session.status === 'completed') {
+        // Volver desde la pantalla final valida la sesión con un esfuerzo «juste bien»
+        finishWorkout('optimal', true);
+      } else if (!abortWithConfirm()) {
+        pushLayer('player');
+      }
+      return;
+    }
+
+    if (currentView !== 'dashboard' && target !== 'exercises') {
+      currentView = 'dashboard';
+      renderAll();
+      return;
+    }
+
+    if (target) return;
+
+    // Raíz : d’abord remonter en haut du fil, puis demander un second « retour » pour quitter
+    const home = document.getElementById('view-dashboard');
+    if (home && home.scrollTop > 10) {
+      home.scrollTo({ top: 0, behavior: 'instant' });
+      pushLayer('guard');
+      return;
+    }
+    showToast('Appuie encore sur retour pour quitter');
+    clearTimeout(exitArmedTimer);
+    exitArmedTimer = setTimeout(() => {
+      if (!currentLayer()) pushLayer('guard');
+    }, 2500);
+  }
+
+  function initHistory() {
+    if (currentLayer()) window.history.replaceState({ elan: 'guard' }, '');
+    else pushLayer('guard');
+    window.addEventListener('popstate', handlePopState);
   }
 
   function cycleStepVariant() {
@@ -780,7 +853,11 @@ window.AppController = (function createAppController() {
       const navBtn = event.target.closest('[data-view]');
       if (navBtn) {
         window.AudioFeedback.playTap();
-        currentView = navBtn.getAttribute('data-view');
+        const nextView = navBtn.getAttribute('data-view');
+        if (nextView === currentView) return;
+        currentView = nextView;
+        if (nextView === 'exercises') pushLayer('exercises');
+        else popLayer('exercises');
         renderAll();
         return;
       }
@@ -805,9 +882,11 @@ window.AppController = (function createAppController() {
         if (session) renderWorkoutOverlay(session);
       } else if (action === 'scroll-to-progress') {
         const target = document.getElementById('feed-progress');
-        if (target) target.scrollIntoView({ behavior: 'smooth' });
+        const home = document.getElementById('view-dashboard');
+        if (target && home) home.scrollTo({ top: target.offsetTop, behavior: 'instant' });
       } else if (action === 'start-workout') {
         window.WorkoutEngine.startWorkout(actionBtn.getAttribute('data-template-id'));
+        pushLayer('player');
       } else if (action === 'begin-exercise-timer') {
         window.WorkoutEngine.beginCurrentExerciseTimer();
       } else if (action === 'cycle-step-variant') {
@@ -822,23 +901,28 @@ window.AppController = (function createAppController() {
         window.AudioFeedback.playTap();
         window.WorkoutEngine.addRestSeconds(15);
       } else if (action === 'abort-workout') {
-        abortWithConfirm();
+        if (abortWithConfirm()) popLayer('player');
       } else if (action === 'finish-workout') {
         finishWorkout(actionBtn.getAttribute('data-rpe'));
       } else if (action === 'filter-exercises') {
         currentExerciseFilter = actionBtn.getAttribute('data-category');
         renderExercisesView(window.AppStorage.getState());
       } else if (action === 'open-exercise-modal') {
+        if (!isSheetOpen()) pushLayer('sheet');
         openExerciseDetailModal(actionBtn.getAttribute('data-exercise-id'));
       } else if (action === 'close-exercise-modal') {
         closeExerciseModal();
+        popLayer('sheet');
       }
     });
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        if (closeExerciseModal()) return;
-        if (isPlayerOpen()) abortWithConfirm();
+        if (closeExerciseModal()) {
+          popLayer('sheet');
+          return;
+        }
+        if (isPlayerOpen() && abortWithConfirm()) popLayer('player');
         return;
       }
       const sheetOpen = !document.getElementById('exercise-detail-modal').classList.contains('is-hidden');
@@ -871,6 +955,7 @@ window.AppController = (function createAppController() {
         renderWorkoutOverlay(session);
       });
       bindEvents();
+      initHistory();
       renderAll();
     }
   };
