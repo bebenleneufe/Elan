@@ -1,29 +1,15 @@
 /**
- * Se simplifica la experiencia a un único programa lineal de 28 días: el usuario abre la app,
- * ve directamente el Día X que le toca hoy con su lista exacta de ejercicios en GIF y lo lanza
- * con un solo botón, sin menús redundantes ni múltiples programas paralelos.
+ * Se prioriza la iconografía vectorial y los indicadores visuales directos por encima del texto
+ * extenso para que toda la interfaz se lea de un vistazo en móvil.
  */
 window.AppController = (function createAppController() {
   let currentView = 'dashboard';
   let selectedDayNumber = null;
   let currentExerciseFilter = 'all';
+  let lastOverlayKey = null;
 
-  function getLevelInfo(xp) {
-    const level = Math.floor(xp / 250) + 1;
-    const currentLevelXp = xp % 250;
-    const progressPct = Math.min(100, Math.round((currentLevelXp / 250) * 100));
-    const titles = [
-      'Déclic Initial',
-      'Corps en Éveil',
-      'Posture Solide',
-      'Régularité Forgée',
-      'Dynamisme 30+',
-      'Athlète du Quotidien',
-      'Maître Poids du Corps'
-    ];
-    const title = titles[Math.min(titles.length - 1, level - 1)];
-    return { level, title, currentLevelXp, nextLevelXp: 250, progressPct };
-  }
+  const RING_RADIUS = 80;
+  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
   function findProgramDayInfo(dayNumber) {
     const weeks = window.AppData.PROGRAM_WEEKS;
@@ -49,7 +35,7 @@ window.AppController = (function createAppController() {
   }
 
   function buildWeekStripHtml(state) {
-    const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     const now = new Date();
     const currentDayOfWeek = (now.getDay() + 6) % 7;
     const activeDates = new Set(state.workoutHistory.map((h) => h.date));
@@ -97,28 +83,23 @@ window.AppController = (function createAppController() {
 
     const streakEl = document.getElementById('header-streak-val');
     if (streakEl) {
-      streakEl.textContent = `${state.streak} ${state.streak > 1 ? 'jours' : 'jour'}`;
+      streakEl.textContent = String(state.streak);
     }
   }
 
-  /**
-   * Se muestra el único programa de 28 días directamente en la pantalla principal:
-   * selector rápido de los días del programa arriba, sesión del Día X a la izquierda,
-   * lista cronológica de ejercicios con GIFs a la derecha y progreso debajo.
-   */
   function renderDashboardView(state) {
     const container = document.getElementById('view-dashboard');
     if (!container) return;
 
+    const ICONS = window.AppData.ICONS;
+    const CAT_ICONS = window.AppData.CATEGORY_ICONS;
     const activeDayNum = selectedDayNumber || state.currentProgramDay || 1;
     const { week, dayObj } = findProgramDayInfo(activeDayNum);
     const template = window.AppData.getTemplateById(dayObj.templateId);
     const isDayCompleted = state.completedProgramDays.includes(dayObj.day);
     const isCurrentRecommendedDay = dayObj.day === state.currentProgramDay;
-    const levelInfo = getLevelInfo(state.xp);
     const programPct = Math.round((state.completedProgramDays.length / 28) * 100);
 
-    // Pestañas de las 4 semanas para navegar dentro de los 28 días si se desea
     const weekSelectorHtml = window.AppData.PROGRAM_WEEKS.map((w) => {
       const isSelectedWeek = w.weekNumber === week.weekNumber;
       return `
@@ -128,12 +109,11 @@ window.AppController = (function createAppController() {
           data-action="select-program-day"
           data-day="${w.days[0].day}"
         >
-          Semaine ${w.weekNumber}
+          S${w.weekNumber}
         </button>
       `;
     }).join('');
 
-    // Los 7 días de la semana seleccionada
     const weekDaysStepperHtml = week.days
       .map((d) => {
         const done = state.completedProgramDays.includes(d.day);
@@ -149,7 +129,7 @@ window.AppController = (function createAppController() {
             title="${d.title}"
           >
             <span class="step-j-label">J${d.day}</span>
-            <span class="step-j-dot">${done ? window.AppData.ICONS.check : d.day}</span>
+            <span class="step-j-dot">${done ? ICONS.check : d.day}</span>
           </button>
         `;
       })
@@ -164,6 +144,8 @@ window.AppController = (function createAppController() {
           state.intensityMultiplier,
           dayObj.day
         );
+        const modeIcon = ex.mode === 'timer' ? ICONS.clock : ICONS.repeat;
+        const catIcon = CAT_ICONS[ex.category] || ICONS.activity;
 
         return `
           <div class="circuit-row" data-action="open-exercise-modal" data-exercise-id="${ex.id}" role="button" tabindex="0">
@@ -173,10 +155,11 @@ window.AppController = (function createAppController() {
             </div>
             <div class="circuit-info">
               <strong>${ex.name}</strong>
-              <span>${ex.categoryLabel} • ${ex.muscles.split(',')[0]}</span>
+              <span class="circuit-meta-icon">${catIcon} ${ex.muscles}</span>
             </div>
             <div class="circuit-badge">
-              <span>${scaledVal} ${ex.unit}</span>
+              ${modeIcon}
+              <span>${scaledVal}${ex.unit}</span>
             </div>
           </div>
         `;
@@ -185,81 +168,70 @@ window.AppController = (function createAppController() {
 
     container.innerHTML = `
       <div class="bento-dashboard">
-        <!-- Bloque superior principal: El Día X del programa + Línea temporal de GIFs -->
         <section class="bento-hero-split">
           <div class="hero-dark-panel">
-            <!-- Navegador lineal integrado de los 28 días del programa -->
             <div class="program-roadmap-bar">
               <div class="roadmap-weeks-row">
-                <div class="roadmap-weeks-tabs" role="tablist" aria-label="Semaines du programme">
+                <div class="roadmap-weeks-tabs" role="tablist" aria-label="Semaines">
                   ${weekSelectorHtml}
                 </div>
                 ${
                   !isCurrentRecommendedDay
                     ? `<button type="button" class="btn-back-current" data-action="select-program-day" data-day="${state.currentProgramDay}">
-                         Revenir au Jour ${state.currentProgramDay} →
+                         ${ICONS.rotateCcw}
+                         <span>J${state.currentProgramDay}</span>
                        </button>`
-                    : `<span class="roadmap-week-tag">Volume +${(week.weekNumber - 1) * 8}%</span>`
+                    : `<span class="roadmap-week-tag">${ICONS.trendingUp} +${(week.weekNumber - 1) * 8}%</span>`
                 }
               </div>
 
-              <div class="roadmap-days-row" role="group" aria-label="Jours de la semaine ${week.weekNumber}">
+              <div class="roadmap-days-row" role="group" aria-label="Jours">
                 ${weekDaysStepperHtml}
               </div>
             </div>
 
             <div class="hero-body-content">
               <div class="hero-eyebrow-row">
-                <span class="hero-eyebrow-pill">JOUR ${dayObj.day} SUR 28 • ${template.tag.toUpperCase()}</span>
+                <span class="hero-eyebrow-pill">J${dayObj.day}/28 • ${template.tag}</span>
                 ${
                   isDayCompleted
-                    ? `<span class="hero-done-pill">${window.AppData.ICONS.check} Jour validé</span>`
+                    ? `<span class="hero-done-pill" title="Validé">${ICONS.check}</span>`
                     : isCurrentRecommendedDay
-                    ? `<span class="hero-next-pill">À faire aujourd’hui</span>`
+                    ? `<span class="hero-next-pill">${ICONS.zap} Aujourd’hui</span>`
                     : ''
                 }
               </div>
 
               <h1 class="hero-display-title">${template.title}</h1>
-              <p class="hero-display-desc">${template.subtitle}</p>
 
               <div class="hero-glass-stats">
-                <div class="glass-stat">
-                  <span class="glass-stat-icon">${window.AppData.ICONS.clock}</span>
-                  <div>
-                    <strong>${template.durationMin} min</strong>
-                    <span>Sans précipitation</span>
-                  </div>
+                <div class="glass-stat" title="Durée">
+                  <span class="glass-stat-icon">${ICONS.clock}</span>
+                  <strong>${template.durationMin} min</strong>
                 </div>
-                <div class="glass-stat">
-                  <span class="glass-stat-icon">${window.AppData.ICONS.dumbbell}</span>
-                  <div>
-                    <strong>${template.exerciseIds.length} mouvements</strong>
-                    <span>Zéro matériel</span>
-                  </div>
+                <div class="glass-stat" title="Exercices">
+                  <span class="glass-stat-icon">${ICONS.dumbbell}</span>
+                  <strong>${template.exerciseIds.length} exos</strong>
                 </div>
-                <div class="glass-stat">
-                  <span class="glass-stat-icon">${window.AppData.ICONS.flame}</span>
-                  <div>
-                    <strong>~${template.caloriesEst} kcal</strong>
-                    <span>+${dayObj.xpReward} XP</span>
-                  </div>
+                <div class="glass-stat" title="Calories">
+                  <span class="glass-stat-icon">${ICONS.flame}</span>
+                  <strong>${template.caloriesEst} kcal</strong>
                 </div>
               </div>
             </div>
 
             <div class="hero-footer-actions">
               <div class="hero-level-bar">
-                <span class="hero-level-label">Niveau d’adaptation :</span>
+                <span class="hero-level-icon" title="Intensité">${ICONS.sliders}</span>
                 <div class="hero-level-segmented">
                   <button type="button" class="seg-btn ${state.fitnessLevel === 1 ? 'is-active' : ''}" data-action="set-level" data-level="1">
-                    Débutant
+                    Niv. 1
                   </button>
                   <button type="button" class="seg-btn ${state.fitnessLevel === 2 ? 'is-active' : ''}" data-action="set-level" data-level="2">
-                    Intermédiaire
+                    Niv. 2
                   </button>
                   <button type="button" class="seg-btn ${state.fitnessLevel === 3 ? 'is-active' : ''}" data-action="set-level" data-level="3">
-                    Avancé
+                    Niv. 3
                   </button>
                 </div>
               </div>
@@ -272,10 +244,9 @@ window.AppController = (function createAppController() {
                 data-program-day="${dayObj.day}"
                 data-xp-reward="${dayObj.xpReward}"
               >
-                <span class="launch-play-circle">${window.AppData.ICONS.play}</span>
+                <span class="launch-play-circle">${ICONS.play}</span>
                 <span class="launch-texts">
-                  <strong>${isDayCompleted ? `Refaire le Jour ${dayObj.day}` : `Lancer le Jour ${dayObj.day} maintenant`}</strong>
-                  <small>Chaque exercice démarre en pause d’observation avec son GIF</small>
+                  <strong>${isDayCompleted ? `Refaire • J${dayObj.day}` : `Démarrer • J${dayObj.day}`}</strong>
                 </span>
               </button>
             </div>
@@ -283,11 +254,11 @@ window.AppController = (function createAppController() {
 
           <div class="hero-circuit-panel">
             <div class="circuit-panel-header">
-              <div>
-                <h2>Séance du Jour ${dayObj.day}</h2>
-                <p>Cliquez sur un exercice pour voir les détails de posture</p>
+              <div class="circuit-header-title">
+                ${ICONS.dumbbell}
+                <h2>Jour ${dayObj.day}</h2>
               </div>
-              <span class="circuit-count-badge">${template.exerciseIds.length} exercices</span>
+              <span class="circuit-count-badge">${template.exerciseIds.length}</span>
             </div>
 
             <div class="circuit-timeline-list">
@@ -296,16 +267,7 @@ window.AppController = (function createAppController() {
           </div>
         </section>
 
-        <!-- Bloque inferior panorámico: Avance de los 28 días y constancia semanal -->
         <article class="bento-card bento-wide-progress">
-          <div class="bento-card-header">
-            <div>
-              <span class="bento-kicker">SUIVI DU PROGRAMME 28 JOURS</span>
-              <h2 class="bento-title">${week.title}</h2>
-            </div>
-            <span class="level-pill-badge">Niv. ${levelInfo.level} • ${levelInfo.title}</span>
-          </div>
-
           <div class="bento-wide-body">
             <div class="week-strip-grid">
               ${buildWeekStripHtml(state)}
@@ -313,28 +275,28 @@ window.AppController = (function createAppController() {
 
             <div class="bento-wide-metrics">
               <div class="bento-mini-kpis">
-                <div class="mini-kpi">
-                  <strong>${state.completedProgramDays.length} / 28</strong>
-                  <span>Jours validés</span>
+                <div class="mini-kpi" title="Jours validés">
+                  <span class="kpi-icon">${ICONS.checkCircle}</span>
+                  <strong>${state.completedProgramDays.length}/28</strong>
                 </div>
-                <div class="mini-kpi">
-                  <strong>${state.streak} j</strong>
-                  <span>Série en cours</span>
+                <div class="mini-kpi" title="Série active">
+                  <span class="kpi-icon">${ICONS.flame}</span>
+                  <strong>${state.streak}j</strong>
                 </div>
-                <div class="mini-kpi">
+                <div class="mini-kpi" title="Séances terminées">
+                  <span class="kpi-icon">${ICONS.trophy}</span>
                   <strong>${state.totalWorkouts}</strong>
-                  <span>Séances finies</span>
                 </div>
-                <div class="mini-kpi">
-                  <strong>${state.totalMinutes} min</strong>
-                  <span>Cumulées</span>
+                <div class="mini-kpi" title="Minutes cumulées">
+                  <span class="kpi-icon">${ICONS.clock}</span>
+                  <strong>${state.totalMinutes}m</strong>
                 </div>
               </div>
 
               <div class="xp-bar-container">
                 <div class="xp-bar-labels">
-                  <span>Avancement total du Programme 28 Jours</span>
-                  <strong>${state.completedProgramDays.length} sur 28 jours (${programPct}%)</strong>
+                  <span class="xp-label-icon">${ICONS.award} 28 Jours</span>
+                  <strong>${programPct}%</strong>
                 </div>
                 <div class="progress-track">
                   <div class="progress-fill" style="--progress-pct: ${programPct}%"></div>
@@ -351,13 +313,16 @@ window.AppController = (function createAppController() {
     const container = document.getElementById('view-exercises');
     if (!container) return;
 
+    const ICONS = window.AppData.ICONS;
+    const CAT_ICONS = window.AppData.CATEGORY_ICONS;
+
     const categories = [
-      { id: 'all', label: 'Tous (14)' },
-      { id: 'mobilite', label: 'Dos & Mobilité (3)' },
-      { id: 'bas', label: 'Jambes & Fessiers (4)' },
-      { id: 'haut', label: 'Haut du Corps (3)' },
-      { id: 'core', label: 'Abdos & Gainage (2)' },
-      { id: 'cardio', label: 'Cardio (2)' }
+      { id: 'all', label: '14', icon: ICONS.grid },
+      { id: 'mobilite', label: 'Mobilité', icon: ICONS.wind },
+      { id: 'bas', label: 'Jambes', icon: ICONS.zap },
+      { id: 'haut', label: 'Haut', icon: ICONS.dumbbell },
+      { id: 'core', label: 'Abdos', icon: ICONS.shield },
+      { id: 'cardio', label: 'Cardio', icon: ICONS.flame }
     ];
 
     const filterBtnsHtml = categories
@@ -369,7 +334,8 @@ window.AppController = (function createAppController() {
           data-action="filter-exercises"
           data-category="${cat.id}"
         >
-          ${cat.label}
+          ${cat.icon}
+          <span>${cat.label}</span>
         </button>
       `
       )
@@ -382,20 +348,18 @@ window.AppController = (function createAppController() {
 
     const cardsHtml = filteredExercises
       .map((ex) => {
+        const modeIcon = ex.mode === 'timer' ? ICONS.clock : ICONS.repeat;
+        const catIcon = CAT_ICONS[ex.category] || ICONS.activity;
         return `
         <article class="exercise-card" data-action="open-exercise-modal" data-exercise-id="${ex.id}" role="button" tabindex="0">
           <div class="exercise-visual-box">
             ${window.AppData.getExerciseIllustration(ex.id)}
-            <span class="exercise-cat-tag">${ex.categoryLabel}</span>
+            <span class="exercise-cat-tag">${catIcon} ${ex.categoryLabel}</span>
+            <span class="exercise-target-floating">${modeIcon} ${ex.baseValue}${ex.unit}</span>
           </div>
           <div class="exercise-card-body">
             <h3 class="exercise-card-title">${ex.name}</h3>
             <p class="exercise-muscles">${ex.muscles}</p>
-            <p class="exercise-why-short">${ex.whyFor30s}</p>
-            <div class="exercise-card-footer">
-              <span class="exercise-target-pill">${ex.baseValue} ${ex.unit}</span>
-              <span class="exercise-link-text">Détails &amp; 3 niveaux →</span>
-            </div>
           </div>
         </article>
       `;
@@ -404,14 +368,6 @@ window.AppController = (function createAppController() {
 
     container.innerHTML = `
       <div class="catalogue-container">
-        <div class="clean-page-header">
-          <div>
-            <span class="bento-kicker">BIBLIOTHÈQUE BIOMÉCANIQUE</span>
-            <h1 class="page-title">Les 14 Mouvements du Programme</h1>
-            <p class="section-subtitle">Chaque exercice est démontré en GIF animé avec les muscles ciblés en rouge.</p>
-          </div>
-        </div>
-
         <div class="filter-tabs-bar" role="tablist">
           ${filterBtnsHtml}
         </div>
@@ -423,42 +379,89 @@ window.AppController = (function createAppController() {
     `;
   }
 
+  function computeRingOffset(step) {
+    const ratio = Math.max(0, step.remainingSeconds / Math.max(1, step.targetValue));
+    return RING_CIRCUMFERENCE * (1 - ratio);
+  }
+
+  /**
+   * Se identifica la estructura visible del reproductor: mientras no cambie, cada tic del
+   * cronómetro solo actualiza los números y el anillo en lugar de reconstruir todo el DOM
+   * (evita reiniciar los GIF y perder toques en botones que desaparecen bajo el dedo).
+   */
+  function getOverlayKey(session) {
+    const step = session.steps[session.currentStepIndex];
+    return [
+      session.status,
+      session.currentStepIndex,
+      step.phase,
+      step.selectedVariantLevel,
+      step.targetValue
+    ].join('|');
+  }
+
+  function patchLiveTimer(overlay, session) {
+    const step = session.steps[session.currentStepIndex];
+    const remainingEl = overlay.querySelector('[data-live="remaining"]');
+    if (remainingEl && remainingEl.firstChild) {
+      remainingEl.firstChild.nodeValue = String(step.remainingSeconds);
+    }
+    const prepEl = overlay.querySelector('[data-live="prep"]');
+    if (prepEl) prepEl.textContent = String(step.prepSeconds);
+    const ringEl = overlay.querySelector('[data-live="ring"]');
+    if (ringEl) ringEl.setAttribute('stroke-dashoffset', String(computeRingOffset(step)));
+  }
+
   function renderWorkoutOverlay(session) {
     const overlay = document.getElementById('workout-player-overlay');
     if (!overlay) return;
 
     if (!session) {
+      lastOverlayKey = null;
       overlay.classList.add('is-hidden');
       overlay.setAttribute('aria-hidden', 'true');
       return;
     }
 
+    const ICONS = window.AppData.ICONS;
+    const CAT_ICONS = window.AppData.CATEGORY_ICONS;
+
+    const overlayKey = getOverlayKey(session);
+    if (overlayKey === lastOverlayKey) {
+      patchLiveTimer(overlay, session);
+      return;
+    }
+    lastOverlayKey = overlayKey;
+
     overlay.classList.remove('is-hidden');
     overlay.setAttribute('aria-hidden', 'false');
 
     if (session.status === 'completed') {
-      const actualMin =
-        Math.max(1, Math.round(session.totalElapsedSeconds / 60)) ||
-        session.template.durationMin;
+      const actualMin = window.WorkoutEngine.getActiveMinutes(session);
       overlay.innerHTML = `
         <div class="player-modal player-victory">
-          <div class="victory-icon-badge">${window.AppData.ICONS.trophy}</div>
-          <h2 class="victory-title">Jour ${session.programDay || ''} terminé, bravo !</h2>
-          <p class="victory-subtitle">${actualMin} min d’activité • ~${session.template.caloriesEst} kcal brûlées • +${session.xpReward} XP</p>
+          <div class="victory-icon-badge">${ICONS.trophy}</div>
+          <h2 class="victory-title">J${session.programDay || ''} validé</h2>
+
+          <div class="victory-kpi-pills">
+            <span class="v-pill">${ICONS.clock} ${actualMin}m</span>
+            <span class="v-pill">${ICONS.flame} ${session.template.caloriesEst} kcal</span>
+            <span class="v-pill">${ICONS.zap} +${session.xpReward}</span>
+          </div>
 
           <div class="rpe-feedback-box">
-            <h3 class="rpe-title">Comment avez-vous trouvé ce Jour ${session.programDay || ''} ?</h3>
-            <p class="rpe-desc">Votre ressenti adapte automatiquement le volume du prochain jour :</p>
             <div class="rpe-buttons">
               <button type="button" class="btn btn-secondary" data-action="finish-workout" data-rpe="easy">
-                Facile (+8% au prochain jour)
+                ${ICONS.trendingUp}
+                <span>Facile (+8%)</span>
               </button>
               <button type="button" class="btn btn-primary" data-action="finish-workout" data-rpe="optimal">
-                ${window.AppData.ICONS.check}
-                <span>Idéal • Valider et passer au jour suivant</span>
+                ${ICONS.check}
+                <span>Parfait</span>
               </button>
               <button type="button" class="btn btn-secondary" data-action="finish-workout" data-rpe="hard">
-                Intense (-8% au prochain jour)
+                ${ICONS.trendingDown}
+                <span>Intense (-8%)</span>
               </button>
             </div>
           </div>
@@ -481,7 +484,7 @@ window.AppController = (function createAppController() {
             class="step-dot-btn ${isCurrent ? 'is-current' : ''} ${isPast ? 'is-past' : ''}"
             data-action="jump-step"
             data-step-index="${idx}"
-            title="Aller à l'exercice ${s.exerciseIndex} : ${s.exercise.name}"
+            title="${s.exercise.name}"
           >
             ${s.exerciseIndex}
           </button>
@@ -499,37 +502,35 @@ window.AppController = (function createAppController() {
 
           <div class="player-topbar">
             <div class="player-top-left">
-              <span class="player-step-counter">JOUR ${session.programDay} • RÉCUPÉRATION</span>
+              <span class="player-step-counter">${ICONS.wind} J${session.programDay}</span>
               <div class="step-dots-bar">${workStepsHtml}</div>
             </div>
-            <button type="button" class="btn btn-ghost btn-sm" data-action="abort-workout">
-              ${window.AppData.ICONS.close}
-              <span>Quitter</span>
+            <button type="button" class="icon-btn" data-action="abort-workout" aria-label="Quitter">
+              ${ICONS.close}
             </button>
           </div>
 
           <div class="rest-split-grid">
             <div class="rest-timer-panel">
-              <span class="rest-badge">Soufflez profondément &amp; relâchez les épaules</span>
-              <div class="timer-display-giant">${currentStep.remainingSeconds}<span>s</span></div>
-              <p class="counter-sublabel">L’exercice suivant s’ouvrira en pause pour vous laisser le temps de vous placer.</p>
+              <span class="rest-badge">${ICONS.wind} Repos</span>
+              <div class="timer-display-giant" data-live="remaining">${currentStep.remainingSeconds}<span>s</span></div>
               <div class="rest-controls">
                 <button type="button" class="btn btn-secondary" data-action="add-rest-time">
-                  +15 sec de repos
+                  +15s
                 </button>
                 <button type="button" class="btn btn-primary" data-action="skip-step">
-                  Voir l’exercice suivant →
+                  ${ICONS.skipForward}
+                  <span>Suivant</span>
                 </button>
               </div>
             </div>
 
             <div class="rest-next-card">
-              <span class="next-label">PROCHAIN MOUVEMENT (${currentStep.exerciseIndex + 1}/${currentStep.totalExercises}) :</span>
+              <span class="next-label">${ICONS.chevronRight} ${currentStep.exerciseIndex + 1}/${currentStep.totalExercises}</span>
               <h3>${nextEx.name}</h3>
               <div class="rest-next-gif">
                 <img src="assets/gifs/${nextEx.id}.gif" alt="${nextEx.name}" />
               </div>
-              <p>${nextEx.coachingCues[0]}</p>
             </div>
           </div>
         </div>
@@ -539,38 +540,29 @@ window.AppController = (function createAppController() {
 
     const ex = currentStep.exercise;
     const isTimer = ex.mode === 'timer';
+    const catIcon = CAT_ICONS[ex.category] || ICONS.activity;
     const variantText = ex.progressions[currentStep.selectedVariantLevel] || ex.progressions[1];
-    const cuesHtml = ex.coachingCues
-      .map((c, i) => `<li><span class="cue-num">${i + 1}</span><span>${c}</span></li>`)
-      .join('');
-    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' exercice poids du corps tutoriel')}`;
+    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' exercice poids du corps')}`;
 
-    const radius = 80;
-    const circumference = 2 * Math.PI * radius;
-    const ratio = isTimer
-      ? Math.max(0, currentStep.remainingSeconds / Math.max(1, currentStep.targetValue))
-      : 1;
-    const dashOffset = circumference * (1 - ratio);
+    const radius = RING_RADIUS;
+    const circumference = RING_CIRCUMFERENCE;
+    const dashOffset = isTimer ? computeRingOffset(currentStep) : 0;
 
     let rightControlPanelHtml = '';
 
     if (currentStep.phase === 'countdown') {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-prep-countdown">
-          <span class="phase-status-pill pill-countdown">Mettez-vous en position !</span>
           <div class="action-ring-row">
             <div class="ring-timer-wrap">
-              <div class="countdown-big-number">${currentStep.prepSeconds}</div>
-              <span class="ring-unit-label">Départ imminent…</span>
+              <div class="countdown-big-number" data-live="prep">${currentStep.prepSeconds}</div>
             </div>
-            <p class="phase-helper-text">Placez-vous tranquillement, le chronomètre démarre dans ${currentStep.prepSeconds}s.</p>
           </div>
         </div>
       `;
     } else if (isTimer && currentStep.phase === 'ready') {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-ready-phase">
-          <span class="phase-status-pill pill-ready">Étape 1 : Observation &amp; Mise en place</span>
           <div class="action-ring-row">
             <div class="ring-timer-wrap">
               <svg class="timer-ring-svg" viewBox="0 0 190 190">
@@ -579,23 +571,22 @@ window.AppController = (function createAppController() {
               </svg>
               <div class="ring-center-content">
                 <div class="timer-display-giant">${currentStep.targetValue}<span>s</span></div>
-                <span class="ring-unit-label">En attente</span>
               </div>
             </div>
 
-            <p class="phase-helper-text">
-              Regardez le GIF animé et placez-vous. Le décompte ne démarre que lorsque vous appuyez ci-dessous :
-            </p>
+            <div class="ready-side-actions">
+              <span class="phase-status-pill pill-ready">${ICONS.eye} Prêt ?</span>
+              <button type="button" class="btn btn-ghost btn-sm" data-action="skip-step" title="Passer">
+                ${ICONS.skipForward}
+                <span>Passer</span>
+              </button>
+            </div>
           </div>
 
           <div class="action-cta-dock">
             <button type="button" class="btn-start-giant" data-action="begin-exercise-timer">
-              ${window.AppData.ICONS.play}
-              <span>Je suis en position • Lancer (${currentStep.targetValue}s)</span>
-            </button>
-
-            <button type="button" class="btn btn-ghost btn-sm" data-action="skip-step">
-              Passer directement cet exercice →
+              ${ICONS.play}
+              <span>Go • ${currentStep.targetValue}s</span>
             </button>
           </div>
         </div>
@@ -603,40 +594,34 @@ window.AppController = (function createAppController() {
     } else if (isTimer) {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-active-phase">
-          <span class="phase-status-pill ${currentStep.phase === 'paused' ? 'pill-ready' : 'pill-active'}">
-            ${currentStep.phase === 'paused' ? 'Chronomètre en pause' : 'Étape 2 : En action • Respirez'}
-          </span>
-
           <div class="action-ring-row">
             <div class="ring-timer-wrap">
               <svg class="timer-ring-svg" viewBox="0 0 190 190">
                 <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
+                <circle class="ring-fg" data-live="ring" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
               </svg>
               <div class="ring-center-content">
-                <div class="timer-display-giant">${currentStep.remainingSeconds}<span>s</span></div>
-                <span class="ring-unit-label">restantes</span>
+                <div class="timer-display-giant" data-live="remaining">${currentStep.remainingSeconds}<span>s</span></div>
               </div>
             </div>
 
             <div class="live-timer-buttons">
-              <button type="button" class="btn btn-secondary" data-action="toggle-pause">
-                ${currentStep.phase === 'paused' ? window.AppData.ICONS.play : window.AppData.ICONS.pause}
-                <span>${currentStep.phase === 'paused' ? 'Reprendre' : 'Pause'}</span>
+              <button type="button" class="btn btn-secondary btn-icon-only" data-action="toggle-pause" aria-label="Pause">
+                ${currentStep.phase === 'paused' ? ICONS.play : ICONS.pause}
               </button>
               <button type="button" class="btn btn-secondary" data-action="add-rest-time">
                 +15s
               </button>
-              <button type="button" class="btn btn-ghost" data-action="restart-exercise-timer" title="Remettre le chrono à zéro">
-                ${window.AppData.ICONS.rotateCcw}
+              <button type="button" class="btn btn-ghost btn-icon-only" data-action="restart-exercise-timer" aria-label="Recommencer">
+                ${ICONS.rotateCcw}
               </button>
             </div>
           </div>
 
           <div class="action-cta-dock">
             <button type="button" class="btn-start-giant" data-action="skip-step">
-              ${window.AppData.ICONS.check}
-              <span>Terminer cet exercice • Suivant →</span>
+              ${ICONS.check}
+              <span>Suivant</span>
             </button>
           </div>
         </div>
@@ -644,8 +629,6 @@ window.AppController = (function createAppController() {
     } else {
       rightControlPanelHtml = `
         <div class="studio-action-panel is-reps-phase">
-          <span class="phase-status-pill pill-ready">À votre rythme • Sans chronomètre</span>
-
           <div class="action-ring-row">
             <div class="ring-timer-wrap">
               <svg class="timer-ring-svg" viewBox="0 0 190 190">
@@ -653,20 +636,19 @@ window.AppController = (function createAppController() {
                 <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
               </svg>
               <div class="ring-center-content">
-                <div class="timer-display-giant">${currentStep.targetValue}</div>
-                <span class="ring-unit-label">${ex.unit}</span>
+                <div class="timer-display-giant">${currentStep.targetValue}<span>×</span></div>
               </div>
             </div>
 
-            <p class="phase-helper-text">
-              Observez le GIF, mettez-vous en place et réalisez vos <strong>${currentStep.targetValue} ${ex.unit}</strong> proprement à votre rythme.
-            </p>
+            <div class="ready-side-actions">
+              <span class="phase-status-pill pill-ready">${ICONS.repeat} ${currentStep.targetValue} rép.</span>
+            </div>
           </div>
 
           <div class="action-cta-dock">
             <button type="button" class="btn-start-giant" data-action="skip-step">
-              ${window.AppData.ICONS.check}
-              <span>J’ai terminé mes ${currentStep.targetValue} ${ex.unit} • Suivant →</span>
+              ${ICONS.check}
+              <span>Valider • ${currentStep.targetValue}×</span>
             </button>
           </div>
         </div>
@@ -681,20 +663,22 @@ window.AppController = (function createAppController() {
 
         <div class="player-topbar">
           <div class="player-top-left">
-            <span class="player-step-counter">JOUR ${session.programDay} • EXO ${currentStep.exerciseIndex}/${currentStep.totalExercises}</span>
-            <div class="step-dots-bar" aria-label="Navigation entre les exercices">
+            <span class="player-step-counter">J${session.programDay} • ${currentStep.exerciseIndex}/${currentStep.totalExercises}</span>
+            <div class="step-dots-bar" aria-label="Exercices">
               ${workStepsHtml}
             </div>
           </div>
           <div class="player-top-actions">
             ${
               currentStep.exerciseIndex > 1
-                ? `<button type="button" class="btn btn-ghost btn-sm" data-action="prev-step">← Préc.</button>`
+                ? `<button type="button" class="icon-btn" data-action="prev-step" aria-label="Précédent">${ICONS.chevronLeft}</button>`
                 : ''
             }
-            <button type="button" class="btn btn-ghost btn-sm" data-action="abort-workout">
-              ${window.AppData.ICONS.close}
-              <span>Quitter</span>
+            <button type="button" class="icon-btn" data-action="open-exercise-modal" data-exercise-id="${ex.id}" aria-label="Infos posture">
+              ${ICONS.info}
+            </button>
+            <button type="button" class="icon-btn" data-action="abort-workout" aria-label="Quitter">
+              ${ICONS.close}
             </button>
           </div>
         </div>
@@ -702,30 +686,25 @@ window.AppController = (function createAppController() {
         <div class="studio-main-grid">
           <div class="studio-visual-column">
             <div class="studio-title-block">
-              <span class="mode-badge">${ex.categoryLabel} • ${ex.muscles}</span>
+              <span class="mode-badge">${catIcon} ${ex.muscles}</span>
               <h2 class="player-ex-title">${ex.name}</h2>
             </div>
 
             <div class="player-gif-stage">
-              <img class="player-gif-main" src="assets/gifs/${ex.id}.gif" alt="Animation ${ex.name}" />
-              <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="gif-yt-pill">
-                ${window.AppData.ICONS.play}
-                <span>Tutoriel YouTube</span>
+              <img class="player-gif-main" src="assets/gifs/${ex.id}.gif" alt="${ex.name}" />
+              <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="gif-yt-pill" title="Vidéo YouTube" aria-label="Vidéo YouTube">
+                ${ICONS.play}
               </a>
             </div>
 
             <div class="studio-variant-box">
               <div class="variant-pills-row">
-                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 1 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="1">Débutant</button>
-                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 2 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="2">Intermédiaire</button>
-                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 3 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="3">Avancé</button>
+                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 1 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="1">Niv. 1</button>
+                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 2 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="2">Niv. 2</button>
+                <button type="button" class="level-chip ${currentStep.selectedVariantLevel === 3 ? 'is-active' : ''}" data-action="set-step-variant" data-variant="3">Niv. 3</button>
               </div>
               <p class="variant-selected-text">${variantText}</p>
             </div>
-
-            <ul class="studio-cues-list">
-              ${cuesHtml}
-            </ul>
           </div>
 
           ${rightControlPanelHtml}
@@ -737,42 +716,41 @@ window.AppController = (function createAppController() {
   function openExerciseDetailModal(exerciseId) {
     const modal = document.getElementById('exercise-detail-modal');
     if (!modal) return;
+    const ICONS = window.AppData.ICONS;
+    const CAT_ICONS = window.AppData.CATEGORY_ICONS;
     const ex = window.AppData.getExerciseById(exerciseId);
+    const catIcon = CAT_ICONS[ex.category] || ICONS.activity;
     const cuesHtml = ex.coachingCues
       .map((c, i) => `<li><span class="cue-num">${i + 1}</span><span>${c}</span></li>`)
       .join('');
-    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' exercice musculation sans matériel')}`;
+    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' exercice poids du corps')}`;
 
     modal.innerHTML = `
       <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-ex-title">
         <div class="sheet-drag-handle" aria-hidden="true"></div>
         <div class="modal-header">
           <div>
-            <span class="mode-badge">${ex.categoryLabel} • ${ex.muscles}</span>
+            <span class="mode-badge">${catIcon} ${ex.muscles}</span>
             <h2 id="modal-ex-title" class="modal-title">${ex.name}</h2>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" data-action="close-exercise-modal" aria-label="Fermer">
-            ${window.AppData.ICONS.close}
+          <button type="button" class="icon-btn" data-action="close-exercise-modal" aria-label="Fermer">
+            ${ICONS.close}
           </button>
         </div>
         <div class="modal-body">
           <div class="player-gif-stage">
-            <img class="player-gif-main" src="assets/gifs/${ex.id}.gif" alt="Animation ${ex.name}" />
+            <img class="player-gif-main" src="assets/gifs/${ex.id}.gif" alt="${ex.name}" />
+            <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="gif-yt-pill" title="YouTube">
+              ${ICONS.play}
+            </a>
           </div>
-          <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-full">
-            ${window.AppData.ICONS.play}
-            <span>Regarder le tutoriel vidéo (YouTube)</span>
-          </a>
-          <p class="modal-why"><strong>Pourquoi cet exercice à 30 ans :</strong> ${ex.whyFor30s}</p>
-          <h4>Posture &amp; exécution étape par étape :</h4>
           <ul class="studio-cues-list">
             ${cuesHtml}
           </ul>
-          <h4>Les 3 niveaux d’adaptation :</h4>
           <div class="modal-progressions">
-            <div class="prog-item"><strong>Débutant :</strong> ${ex.progressions[1]}</div>
-            <div class="prog-item"><strong>Intermédiaire :</strong> ${ex.progressions[2]}</div>
-            <div class="prog-item"><strong>Avancé :</strong> ${ex.progressions[3]}</div>
+            <div class="prog-item"><strong>Niv. 1</strong> <span>${ex.progressions[1]}</span></div>
+            <div class="prog-item"><strong>Niv. 2</strong> <span>${ex.progressions[2]}</span></div>
+            <div class="prog-item"><strong>Niv. 3</strong> <span>${ex.progressions[3]}</span></div>
           </div>
         </div>
       </div>
@@ -787,7 +765,7 @@ window.AppController = (function createAppController() {
     toast.classList.add('is-visible');
     setTimeout(() => {
       toast.classList.remove('is-visible');
-    }, 3000);
+    }, 2200);
   }
 
   function renderAll() {
@@ -810,7 +788,6 @@ window.AppController = (function createAppController() {
 
   function bindEvents() {
     document.addEventListener('click', (event) => {
-      // Cerrar modal de detalle al tocar el fondo oscuro en móvil
       if (event.target.id === 'exercise-detail-modal') {
         event.target.classList.add('is-hidden');
         return;
@@ -839,7 +816,7 @@ window.AppController = (function createAppController() {
         const fitnessLevel = Number(actionBtn.getAttribute('data-level'));
         window.AppStorage.updatePreferences({ fitnessLevel });
         renderAll();
-        showToast('Niveau d’adaptation ajusté');
+        showToast(`Niv. ${fitnessLevel}`);
       } else if (action === 'start-workout') {
         const templateId = actionBtn.getAttribute('data-template-id');
         const programDay = Number(actionBtn.getAttribute('data-program-day')) || 1;
@@ -870,26 +847,36 @@ window.AppController = (function createAppController() {
         window.AudioFeedback.playTap();
         window.WorkoutEngine.addRestSeconds(15);
       } else if (action === 'abort-workout') {
+        const session = window.WorkoutEngine.getActiveSession();
+        const hasProgress =
+          session &&
+          (session.currentStepIndex > 0 || session.steps[0].phase !== 'ready');
+        if (hasProgress && !window.confirm('Quitter la séance ? Elle ne sera pas validée.')) {
+          return;
+        }
         window.WorkoutEngine.abortWorkout();
         renderWorkoutOverlay(null);
       } else if (action === 'finish-workout') {
         const rpe = actionBtn.getAttribute('data-rpe');
         const session = window.WorkoutEngine.getActiveSession();
         if (session) {
-          const updatedState = window.AppStorage.recordCompletedWorkout({
+          const { state: updatedState } = window.AppStorage.recordCompletedWorkout({
             title: session.template.title,
-            durationMin: session.template.durationMin,
+            durationMin: window.WorkoutEngine.getActiveMinutes(session),
             caloriesEst: session.template.caloriesEst,
             xpEarned: session.xpReward,
             programDay: session.programDay,
             rpe
           });
-          // Se posiciona automáticamente el selector en el siguiente día pendiente del programa
           selectedDayNumber = updatedState.currentProgramDay;
           window.WorkoutEngine.abortWorkout();
           renderWorkoutOverlay(null);
           renderAll();
-          showToast(`Jour ${session.programDay} validé ! Cap sur le Jour ${updatedState.currentProgramDay} !`);
+          showToast(
+            updatedState.currentProgramDay > session.programDay
+              ? `J${session.programDay} validé → J${updatedState.currentProgramDay}`
+              : `J${session.programDay} validé`
+          );
         }
       } else if (action === 'filter-exercises') {
         currentExerciseFilter = actionBtn.getAttribute('data-category');
@@ -900,6 +887,15 @@ window.AppController = (function createAppController() {
       } else if (action === 'close-exercise-modal') {
         const modal = document.getElementById('exercise-detail-modal');
         if (modal) modal.classList.add('is-hidden');
+      }
+    });
+
+    // Se pide confirmación al cerrar o recargar la pestaña con una sesión en curso
+    window.addEventListener('beforeunload', (event) => {
+      const session = window.WorkoutEngine.getActiveSession();
+      if (session && session.status === 'running') {
+        event.preventDefault();
+        event.returnValue = '';
       }
     });
 

@@ -39,6 +39,25 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     }
   });
 
+  /**
+   * Se acumula el tiempo pasado en pausa al salir de ella para que la duración registrada
+   * refleje solo el tiempo real de entrenamiento.
+   */
+  function settlePause() {
+    if (activeSession && activeSession.pauseStartedAt) {
+      activeSession.pausedMs += Date.now() - activeSession.pauseStartedAt;
+      activeSession.pauseStartedAt = null;
+    }
+  }
+
+  function getActiveMinutes(session) {
+    if (!session) return 0;
+    const end = session.completedAt || Date.now();
+    const pending = session.pauseStartedAt ? end - session.pauseStartedAt : 0;
+    const activeMs = Math.max(0, end - session.startedAt - session.pausedMs - pending);
+    return Math.max(1, Math.round(activeMs / 60000));
+  }
+
   function clearTimer() {
     if (intervalId) {
       clearInterval(intervalId);
@@ -169,6 +188,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
   function advanceStep() {
     clearTimer();
     if (!activeSession) return;
+    settlePause();
 
     if (activeSession.currentStepIndex < activeSession.steps.length - 1) {
       activeSession.currentStepIndex += 1;
@@ -187,6 +207,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       }
     } else {
       activeSession.status = 'completed';
+      activeSession.completedAt = Date.now();
       releaseWakeLock();
       window.AudioFeedback.playVictory();
       window.AppLogger.info({ id: activeSession.template.id }, 'Workout steps finished');
@@ -214,6 +235,10 @@ window.WorkoutEngine = (function createWorkoutEngine() {
         steps: buildSteps(template, state, activeProgramDay),
         currentStepIndex: 0,
         totalElapsedSeconds: 0,
+        startedAt: Date.now(),
+        completedAt: null,
+        pausedMs: 0,
+        pauseStartedAt: null,
         status: 'running'
       };
 
@@ -247,10 +272,14 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       if (!currentStep) return;
 
       if (currentStep.phase === 'active' || currentStep.phase === 'countdown') {
+        // Se recuerda la fase previa para reanudar la cuenta atrás si se pausó durante ella
+        currentStep.phaseBeforePause = currentStep.phase;
         currentStep.phase = 'paused';
+        activeSession.pauseStartedAt = Date.now();
         clearTimer();
       } else if (currentStep.phase === 'paused') {
-        currentStep.phase = 'active';
+        currentStep.phase = currentStep.phaseBeforePause || 'active';
+        settlePause();
         runActiveInterval();
       }
       notifyUpdate();
@@ -261,6 +290,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       if (!currentStep || currentStep.stepType !== 'work') return;
 
       clearTimer();
+      settlePause();
       currentStep.remainingSeconds = currentStep.targetValue;
       currentStep.phase = 'ready';
       notifyUpdate();
@@ -282,6 +312,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       if (!activeSession || activeSession.status === 'completed') return;
       if (targetStepIndex >= 0 && targetStepIndex < activeSession.steps.length) {
         clearTimer();
+        settlePause();
         activeSession.currentStepIndex = targetStepIndex;
         const step = activeSession.steps[targetStepIndex];
         step.phase = step.stepType === 'rest' ? 'active' : 'ready';
@@ -310,7 +341,10 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       clearTimer();
       releaseWakeLock();
       activeSession = null;
+      // Se avisa de que no hay sesión en curso (p. ej. para aplicar una actualización pendiente)
+      window.dispatchEvent(new CustomEvent('elan:workout-idle'));
     },
+    getActiveMinutes,
     getActiveSession() {
       return activeSession;
     }
