@@ -2529,3 +2529,133 @@ a,
   font-size: 0.72rem;
   font-weight: 800;
 }
+
+/* ------------------------------------------------------------------
+ * Fotos de ejercicios: dos imágenes (inicio / fin) que se alternan
+ * ------------------------------------------------------------------ */
+.player-gif-stage,
+.rest-next-gif,
+.exercise-visual-box {
+  padding: 0;
+  overflow: hidden;
+  background-color: #1e293b;
+}
+
+.photo-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-flip img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-flip img + img {
+  opacity: 0;
+}
+
+.photo-flip.is-animated img + img {
+  animation: photo-flip-swap 2s steps(1, end) infinite;
+}
+
+@keyframes photo-flip-swap {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-flip.is-animated img + img {
+    animation: none;
+  }
+}
+
+.exercise-card-photo,
+.circuit-gif-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.circuit-gif-thumb {
+  padding: 0;
+  overflow: hidden;
+}
+
+.circuit-section-title {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.circuit-section-title:first-child {
+  margin-top: 0;
+}
+
+.circuit-section-title span {
+  color: var(--primary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mobility-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.mobility-icon {
+  display: inline-flex;
+  padding: 0.55rem;
+  border-radius: var(--radius-md);
+  background-color: var(--primary-soft);
+  color: var(--primary);
+}
+
+.mobility-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mobility-texts {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.mobility-texts span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.prog-week-pill.is-done {
+  opacity: 0.6;
+}
+
+.rpe-question {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.rest-next-variant {
+  margin: -0.2rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.prog-item.is-current {
+  color: var(--primary);
+}

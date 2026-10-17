@@ -65,59 +65,84 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     }
   }
 
-  function computeScaledTarget(exercise, fitnessLevel, intensityMultiplier, programDay) {
-    const levelFactor = fitnessLevel === 1 ? 0.85 : fitnessLevel === 2 ? 1.0 : 1.25;
-    const weekIndex = Math.max(0, Math.min(3, Math.ceil((programDay || 1) / 7) - 1));
-    // Se incrementa progresivamente el volumen cada semana (+8% por semana) dentro del plan de 28 días
-    const weekProgressionFactor = 1 + weekIndex * 0.08;
-    const rawValue =
-      exercise.baseValue * levelFactor * weekProgressionFactor * (intensityMultiplier || 1.0);
-
-    if (exercise.mode === 'timer') {
-      return Math.max(20, Math.round(rawValue / 5) * 5);
-    }
-    return Math.max(6, Math.round(rawValue));
-  }
-
-  function buildSteps(template, state, programDay) {
-    const steps = [];
-    const totalExercises = template.exerciseIds.length;
-
-    template.exerciseIds.forEach((exerciseId, index) => {
-      const exercise = window.AppData.getExerciseById(exerciseId);
-      const targetValue = computeScaledTarget(
-        exercise,
-        state.fitnessLevel,
-        state.intensityMultiplier,
-        programDay
-      );
-
-      steps.push({
+  function makeWorkStep(exercise, level, ctx, meta) {
+    const D = window.AppData;
+    const lv = D.getExerciseLevel(exercise, level);
+    const targetValue = D.computeTarget(exercise, lv.level, ctx.volumeFactor, ctx.intensityMultiplier);
+    return Object.assign(
+      {
         stepType: 'work',
-        // Se inicia cada ejercicio en estado 'ready' para que el reloj NO corra hasta que el usuario esté listo
+        // Se inicia cada ejercicio en 'ready' para que el reloj NO corra hasta que el usuario esté listo
         phase: 'ready', // 'ready' | 'countdown' | 'active' | 'paused'
         prepSeconds: 3,
-        exerciseIndex: index + 1,
-        totalExercises,
         exercise,
-        selectedVariantLevel: state.fitnessLevel,
+        selectedVariantLevel: lv.level,
+        levelInfo: lv,
+        mode: lv.mode,
         targetValue,
-        remainingSeconds: exercise.mode === 'timer' ? targetValue : 0,
+        remainingSeconds: lv.mode === 'timer' ? targetValue : 0,
         elapsedSeconds: 0
-      });
+      },
+      meta
+    );
+  }
 
-      if (index < totalExercises - 1) {
-        const nextExercise = window.AppData.getExerciseById(template.exerciseIds[index + 1]);
-        steps.push({
-          stepType: 'rest',
-          phase: 'active',
+  /**
+   * Se construye la secuencia: calentamiento, bloque principal en N vueltas y vuelta a la calma,
+   * con descansos más largos entre vueltas y transiciones cortas en calentamiento y estiramientos.
+   */
+  function buildSteps(template, ctx) {
+    const D = window.AppData;
+    const rounds = template.optional ? 1 : ctx.rounds;
+    const plan = [];
+
+    template.warmup.forEach((id) => plan.push({ id, section: 'warmup', round: 0 }));
+    for (let r = 1; r <= rounds; r += 1) {
+      template.main.forEach((id) => plan.push({ id, section: 'main', round: r }));
+    }
+    template.cooldown.forEach((id) => plan.push({ id, section: 'cooldown', round: 0 }));
+
+    const steps = [];
+    plan.forEach((item, index) => {
+      const exercise = D.getExerciseById(item.id);
+      steps.push(
+        makeWorkStep(exercise, ctx.level, ctx, {
+          section: item.section,
+          round: item.round,
+          totalRounds: rounds,
           exerciseIndex: index + 1,
-          totalExercises,
-          nextExercise,
-          targetValue: 25,
-          remainingSeconds: 25
-        });
+          totalExercises: plan.length
+        })
+      );
+
+      const next = plan[index + 1];
+      if (!next) return;
+      const nextExercise = D.getExerciseById(next.id);
+      let restSeconds = D.TRANSITION_SECONDS;
+      let restLabel = 'Transition';
+      if (item.section === 'main' && next.section === 'main') {
+        const endOfRound = next.round !== item.round;
+        restSeconds = endOfRound ? D.REST_BETWEEN_ROUNDS : D.REST_BETWEEN_EXERCISES;
+        restLabel = endOfRound ? `Fin du tour ${item.round}` : 'Repos';
+      } else if (item.section === 'main') {
+        restSeconds = D.REST_BETWEEN_EXERCISES;
+        restLabel = 'Bravo, on s’étire';
       }
+
+      steps.push({
+        stepType: 'rest',
+        phase: 'active',
+        label: restLabel,
+        section: next.section,
+        round: next.round,
+        totalRounds: rounds,
+        exerciseIndex: index + 1,
+        totalExercises: plan.length,
+        nextExercise,
+        nextLevel: D.getExerciseLevel(nextExercise, ctx.level),
+        targetValue: restSeconds,
+        remainingSeconds: restSeconds
+      });
     });
 
     return steps;
@@ -160,7 +185,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
 
       activeSession.totalElapsedSeconds += 1;
 
-      if (currentStep.stepType === 'rest' || currentStep.exercise.mode === 'timer') {
+      if (currentStep.stepType === 'rest' || currentStep.mode === 'timer') {
         currentStep.remainingSeconds = Math.max(0, currentStep.remainingSeconds - 1);
 
         if (
@@ -194,9 +219,18 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       activeSession.currentStepIndex += 1;
       const nextStep = activeSession.steps[activeSession.currentStepIndex];
 
+      const prevStep = activeSession.steps[activeSession.currentStepIndex - 1];
+
       if (nextStep.stepType === 'rest') {
         nextStep.phase = 'active';
         window.AudioFeedback.playRestPhase();
+        notifyUpdate();
+        runActiveInterval();
+      } else if (prevStep && prevStep.stepType === 'rest' && nextStep.mode === 'timer') {
+        // Tras un descanso el usuario ya vio el ejercicio: el cronómetro arranca solo tras 3-2-1
+        nextStep.phase = 'countdown';
+        nextStep.prepSeconds = 3;
+        window.AudioFeedback.playCountdownTick(3);
         notifyUpdate();
         runActiveInterval();
       } else {
@@ -226,13 +260,23 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       const template = window.AppData.getTemplateById(templateId);
       const opts = options || {};
 
-      const activeProgramDay = opts.programDay || state.currentProgramDay || 1;
+      const position = window.AppData.getProgramPosition(
+        opts.sessionIndex !== undefined ? opts.sessionIndex : state.programSessionIndex
+      );
+      const ctx = {
+        level: state.fitnessLevel,
+        rounds: position.rounds,
+        volumeFactor: position.volumeFactor,
+        intensityMultiplier: state.intensityMultiplier
+      };
 
       activeSession = {
         template,
-        programDay: activeProgramDay,
-        xpReward: opts.xpReward || 120,
-        steps: buildSteps(template, state, activeProgramDay),
+        position,
+        // Solo las sesiones del programa (no la movilidad opcional) hacen avanzar la progresión
+        counted: !template.optional,
+        ctx,
+        steps: buildSteps(template, ctx),
         currentStepIndex: 0,
         totalElapsedSeconds: 0,
         startedAt: Date.now(),
@@ -244,7 +288,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
 
       window.AudioFeedback.playStepReady();
       window.AppLogger.info(
-        { templateId: template.id, programDay: activeSession.programDay },
+        { templateId: template.id, sessionIndex: position.sessionIndex },
         'Workout session opened in observation mode'
       );
 
@@ -323,7 +367,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     addRestSeconds(extraSeconds) {
       if (!activeSession) return;
       const currentStep = activeSession.steps[activeSession.currentStepIndex];
-      if (currentStep && (currentStep.stepType === 'rest' || currentStep.exercise.mode === 'timer')) {
+      if (currentStep && (currentStep.stepType === 'rest' || currentStep.mode === 'timer')) {
         currentStep.remainingSeconds += extraSeconds;
         currentStep.targetValue += extraSeconds;
         notifyUpdate();
@@ -332,10 +376,26 @@ window.WorkoutEngine = (function createWorkoutEngine() {
     setCurrentStepVariant(variantLevel) {
       if (!activeSession) return;
       const currentStep = activeSession.steps[activeSession.currentStepIndex];
-      if (currentStep && currentStep.stepType === 'work') {
-        currentStep.selectedVariantLevel = Number(variantLevel);
-        notifyUpdate();
-      }
+      if (!currentStep || currentStep.stepType !== 'work') return;
+      const level = Number(variantLevel);
+      // El nivel elegido se aplica a este ejercicio y a sus siguientes vueltas en la sesión
+      activeSession.steps.forEach((step, idx) => {
+        if (idx < activeSession.currentStepIndex) return;
+        if (step.stepType === 'work' && step.exercise.id === currentStep.exercise.id) {
+          const fresh = makeWorkStep(step.exercise, level, activeSession.ctx, {});
+          step.selectedVariantLevel = fresh.selectedVariantLevel;
+          step.levelInfo = fresh.levelInfo;
+          step.mode = fresh.mode;
+          step.targetValue = fresh.targetValue;
+          step.remainingSeconds = fresh.remainingSeconds;
+        } else if (step.stepType === 'rest' && step.nextExercise.id === currentStep.exercise.id) {
+          step.nextLevel = window.AppData.getExerciseLevel(step.nextExercise, level);
+        }
+      });
+      clearTimer();
+      settlePause();
+      currentStep.phase = 'ready';
+      notifyUpdate();
     },
     abortWorkout() {
       clearTimer();

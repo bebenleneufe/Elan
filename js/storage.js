@@ -4,63 +4,32 @@
  */
 window.AppStorage = (function createAppStorage() {
   const STORAGE_KEY = 'elancorps_30plus_state_v1';
+  const HISTORY_LIMIT = 300;
+
+  function toDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   function getTodayDateString() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return toDateString(new Date());
   }
 
   function getDefaultState() {
     return {
-      userName: 'Alex',
-      age: 30,
-      fitnessLevel: 1, // 1: Reprise Douce, 2: Tonique, 3: Athlétique
+      fitnessLevel: 1, // 1: Reprise douce, 2: Intermédiaire, 3: Confirmé
       intensityMultiplier: 1.0,
-      xp: 150,
-      streak: 1,
-      bestStreak: 1,
-      lastActiveDate: getTodayDateString(),
+      programSessionIndex: 0, // Sesiones del programa completadas (define ciclo, semana y sesión)
+      cycleHardCount: 0, // Sesiones juzgadas "intensas" en el ciclo en curso
       totalWorkouts: 0,
       totalMinutes: 0,
-      totalCalories: 0,
-      currentProgramDay: 1,
-      completedProgramDays: [],
-      completedQuestsByDate: {},
-      dailyCheckinByDate: {},
+      lastActiveDate: null,
       workoutHistory: [],
-      unlockedBadges: [],
       theme: 'light',
       soundMuted: false
     };
-  }
-
-  /**
-   * Se calcula la diferencia de días calendario entre la última actividad y hoy
-   * para mantener o reiniciar la racha diaria de forma justa.
-   */
-  function reconcileStreak(state) {
-    const today = getTodayDateString();
-    if (!state.lastActiveDate) {
-      state.lastActiveDate = today;
-      return state;
-    }
-
-    if (state.lastActiveDate === today) {
-      return state;
-    }
-
-    const lastDate = new Date(`${state.lastActiveDate}T00:00:00`);
-    const currentDate = new Date(`${today}T00:00:00`);
-    const diffDays = Math.round((currentDate - lastDate) / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 1) {
-      // Se reinicia a 0 si se saltó más de un día completo sin registrar actividad
-      state.streak = 0;
-    }
-    return state;
   }
 
   function loadState() {
@@ -71,9 +40,7 @@ window.AppStorage = (function createAppStorage() {
         saveState(initial);
         return initial;
       }
-      const parsed = JSON.parse(raw);
-      const merged = Object.assign({}, getDefaultState(), parsed);
-      return reconcileStreak(merged);
+      return Object.assign({}, getDefaultState(), JSON.parse(raw));
     } catch (error) {
       window.AppLogger.error({ error: String(error) }, 'Failed to load state from localStorage');
       return getDefaultState();
@@ -88,48 +55,42 @@ window.AppStorage = (function createAppStorage() {
     }
   }
 
-  /**
-   * Se actualiza la racha cuando el usuario completa una sesión o un hábito diario,
-   * premiando la constancia cotidiana.
-   */
-  function markActiveToday(state) {
-    const today = getTodayDateString();
-    if (state.lastActiveDate !== today) {
-      const lastDate = new Date(`${state.lastActiveDate}T00:00:00`);
-      const currentDate = new Date(`${today}T00:00:00`);
-      const diffDays = Math.round((currentDate - lastDate) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        state.streak += 1;
-      } else {
-        state.streak = Math.max(1, state.streak);
-      }
-      state.lastActiveDate = today;
-    } else if (state.streak === 0) {
-      state.streak = 1;
-    }
-
-    if (state.streak > state.bestStreak) {
-      state.bestStreak = state.streak;
-    }
+  function getMondayOf(date) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
   }
 
   /**
-   * Se verifica el desbloqueo de insignias tras cada logro para ofrecer retroalimentación inmediata.
+   * Se cuenta la racha en semanas (no en días): con 3 sesiones semanales, los días de descanso
+   * forman parte del programa y no deben romper la serie. La semana en curso sin sesión aún
+   * no la rompe.
    */
-  function evaluateBadges(state) {
-    const newlyUnlocked = [];
-    window.AppData.BADGES.forEach((badge) => {
-      if (!state.unlockedBadges.includes(badge.id) && badge.condition(state)) {
-        state.unlockedBadges.push(badge.id);
-        newlyUnlocked.push(badge);
-      }
-    });
-    return newlyUnlocked;
+  function getWeeklyStreak(state) {
+    const activeWeeks = new Set(
+      state.workoutHistory.map((h) => toDateString(getMondayOf(new Date(`${h.date}T00:00:00`))))
+    );
+    const cursor = getMondayOf(new Date());
+    if (!activeWeeks.has(toDateString(cursor))) {
+      cursor.setDate(cursor.getDate() - 7);
+    }
+    let streak = 0;
+    while (activeWeeks.has(toDateString(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 7);
+    }
+    return streak;
+  }
+
+  function countSessionsThisWeek(state) {
+    const monday = toDateString(getMondayOf(new Date()));
+    return state.workoutHistory.filter((h) => h.counted !== false && h.date >= monday).length;
   }
 
   return {
     getTodayDateString,
+    getWeeklyStreak,
+    countSessionsThisWeek,
     getState() {
       return loadState();
     },
@@ -140,92 +101,61 @@ window.AppStorage = (function createAppStorage() {
       window.AppLogger.info({ fitnessLevel: state.fitnessLevel, theme: state.theme }, 'User preferences updated');
       return state;
     },
-    recordDailyCheckin(feelingId) {
+    /**
+     * Se registra la sesión, se avanza en el programa y se adapta el volumen según el esfuerzo
+     * percibido. Al cerrar un ciclo sin sesiones "intensas", se sube automáticamente de nivel.
+     */
+    recordCompletedWorkout(summary) {
       const state = loadState();
-      const today = getTodayDateString();
-      state.dailyCheckinByDate[today] = feelingId;
-      saveState(state);
-      window.AppLogger.info({ feelingId }, 'Daily check-in recorded');
-      return state;
-    },
-    toggleDailyQuest(questId, xpReward) {
-      const state = loadState();
-      const today = getTodayDateString();
-      if (!state.completedQuestsByDate[today]) {
-        state.completedQuestsByDate[today] = [];
-      }
-
-      const list = state.completedQuestsByDate[today];
-      const idx = list.indexOf(questId);
-      let completed = false;
-
-      if (idx === -1) {
-        list.push(questId);
-        state.xp += xpReward;
-        markActiveToday(state);
-        completed = true;
-      } else {
-        list.splice(idx, 1);
-        state.xp = Math.max(0, state.xp - xpReward);
-      }
-
-      const newBadges = evaluateBadges(state);
-      saveState(state);
-      window.AppLogger.info({ questId, completed }, 'Daily quest toggled');
-      return { state, completed, newBadges };
-    },
-    recordCompletedWorkout(workoutSummary) {
-      const state = loadState();
-      const today = getTodayDateString();
+      let levelUp = false;
+      let cycleCompleted = false;
 
       state.totalWorkouts += 1;
-      state.totalMinutes += workoutSummary.durationMin;
-      state.totalCalories += workoutSummary.caloriesEst;
-      state.xp += workoutSummary.xpEarned;
+      state.totalMinutes += summary.durationMin;
+      state.lastActiveDate = getTodayDateString();
 
-      markActiveToday(state);
+      if (summary.counted) {
+        const position = window.AppData.getProgramPosition(state.programSessionIndex);
+        state.programSessionIndex += 1;
 
-      if (workoutSummary.programDay) {
-        if (!state.completedProgramDays.includes(workoutSummary.programDay)) {
-          state.completedProgramDays.push(workoutSummary.programDay);
+        if (summary.rpe === 'easy') {
+          state.intensityMultiplier = Math.min(1.4, Number((state.intensityMultiplier + 0.08).toFixed(2)));
+        } else if (summary.rpe === 'hard') {
+          state.intensityMultiplier = Math.max(0.75, Number((state.intensityMultiplier - 0.08).toFixed(2)));
+          state.cycleHardCount += 1;
         }
-        if (workoutSummary.programDay >= state.currentProgramDay && state.currentProgramDay < 28) {
-          state.currentProgramDay = workoutSummary.programDay + 1;
-        }
-      }
 
-      /**
-       * Se ajusta automáticamente el multiplicador de volumen según la percepción del esfuerzo (RPE)
-       * para evitar lesiones por sobrecarga o aburrimiento por sesiones demasiado fáciles.
-       */
-      if (workoutSummary.rpe === 'easy') {
-        state.intensityMultiplier = Math.min(1.4, Number((state.intensityMultiplier + 0.08).toFixed(2)));
-      } else if (workoutSummary.rpe === 'hard') {
-        state.intensityMultiplier = Math.max(0.75, Number((state.intensityMultiplier - 0.08).toFixed(2)));
+        if (position.isLastOfCycle) {
+          cycleCompleted = true;
+          if (state.cycleHardCount === 0 && state.fitnessLevel < 3) {
+            state.fitnessLevel += 1;
+            // Nuevo nivel = variantes más difíciles: se reinicia el ajuste fino de volumen
+            state.intensityMultiplier = 1.0;
+            levelUp = true;
+          }
+          state.cycleHardCount = 0;
+        }
       }
 
       state.workoutHistory.unshift({
         id: `wk-${Date.now()}`,
-        date: today,
+        date: getTodayDateString(),
         timestamp: new Date().toISOString(),
-        title: workoutSummary.title,
-        durationMin: workoutSummary.durationMin,
-        caloriesEst: workoutSummary.caloriesEst,
-        xpEarned: workoutSummary.xpEarned,
-        rpe: workoutSummary.rpe || 'optimal'
+        templateId: summary.templateId,
+        title: summary.title,
+        durationMin: summary.durationMin,
+        counted: Boolean(summary.counted),
+        rpe: summary.rpe || 'optimal'
       });
+      state.workoutHistory = state.workoutHistory.slice(0, HISTORY_LIMIT);
 
-      // Se conservan las últimas 50 sesiones para mantener el almacenamiento ligero
-      state.workoutHistory = state.workoutHistory.slice(0, 50);
-
-      const newBadges = evaluateBadges(state);
       saveState(state);
       window.AppLogger.info(
-        { id: workoutSummary.title, rpe: workoutSummary.rpe, totalWorkouts: state.totalWorkouts },
+        { templateId: summary.templateId, rpe: summary.rpe, sessionIndex: state.programSessionIndex },
         'Workout session recorded'
       );
 
-      return { state, newBadges };
+      return { state, levelUp, cycleCompleted };
     },
     resetProgress() {
       const fresh = getDefaultState();

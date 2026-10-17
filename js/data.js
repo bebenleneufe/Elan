@@ -45,512 +45,401 @@ window.AppData = (function createAppData() {
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>'
   };
 
+
   const CATEGORY_ICONS = {
-    mobilite: ICONS.wind,
-    bas: ICONS.zap,
+    echauffement: ICONS.wind,
+    jambes: ICONS.zap,
     haut: ICONS.dumbbell,
     core: ICONS.shield,
-    cardio: ICONS.flame
+    cardio: ICONS.flame,
+    etirement: ICONS.wind
   };
 
-  function getExerciseIllustration(exerciseId) {
-    const safeId = exerciseId || 'controlled-squat';
+  const CATEGORY_LABELS = {
+    echauffement: 'Échauffement',
+    jambes: 'Jambes',
+    haut: 'Haut du corps',
+    core: 'Gainage',
+    cardio: 'Cardio',
+    etirement: 'Étirement'
+  };
+
+  /**
+   * Fotografías de dominio público (free-exercise-db, Unlicense) en assets/photos/<carpeta>/0|1.jpg.
+   * Las dos imágenes (posición inicial y final) se alternan para mostrar el movimiento.
+   */
+  function getExerciseMedia(photo, alt, extraClass) {
+    const base = `assets/photos/${photo}`;
     return `
-      <div class="real-exercise-gif-wrap">
-        <img
-          class="exercise-gif-img"
-          src="assets/gifs/${safeId}.gif"
-          alt="Animation de l'exercice"
-          loading="lazy"
-        />
+      <div class="photo-flip ${extraClass || ''}">
+        <img src="${base}/0.jpg" alt="${alt}" loading="lazy" decoding="async" />
+        <img src="${base}/1.jpg" alt="" aria-hidden="true" loading="lazy" decoding="async" />
       </div>
     `;
   }
 
   /**
-   * Se condensan los nombres, músculos y claves posturales de los 14 ejercicios en micro-textos
-   * directos para lectura instantánea durante el esfuerzo.
+   * Cada ejercicio tiene hasta tres niveles; cada nivel es una variante real con su propia foto,
+   * su valor base y, si cambia, su modo (repeticiones o tiempo).
    */
   const EXERCISES = [
+    // --- Échauffement ---
     {
-      id: 'cat-cow',
-      name: 'Ouverture Thoracique',
-      category: 'mobilite',
-      categoryLabel: 'Mobilité',
-      muscles: 'Pectoraux • Haut du dos',
+      id: 'arm-circles',
+      name: 'Cercles de bras',
+      category: 'echauffement',
+      muscles: 'Épaules',
       mode: 'timer',
-      baseValue: 40,
-      unit: 's',
-      whyFor30s: 'Redresse les épaules et ouvre la cage thoracique.',
-      coachingCues: [
-        'Debout, bras tendus à hauteur d’épaules.',
-        'Inspirez en ouvrant grand et serrez les omoplates.',
-        'Refermez avec fluidité.'
-      ],
-      progressions: {
-        1: 'Amplitude douce, rythme lent',
-        2: 'Pause 1s poitrine ouverte',
-        3: 'Contraction tonique du dos'
-      }
+      cues: ['Bras tendus à l’horizontale', 'Petits cercles, puis plus grands', 'Changez de sens au bip'],
+      levels: { 1: { label: 'Cercles de bras', photo: 'arm-circles', base: 30 } }
     },
     {
-      id: 'thoracic-opener',
-      name: 'Fente & Rotation',
-      category: 'mobilite',
-      categoryLabel: 'Mobilité',
-      muscles: 'Dos • Hanches',
+      id: 'cat-stretch',
+      name: 'Dos rond, dos creux',
+      category: 'echauffement',
+      muscles: 'Colonne • Dos',
       mode: 'timer',
-      baseValue: 45,
-      unit: 's',
-      whyFor30s: 'Délie hanches et colonne vertébrale en un mouvement.',
-      coachingCues: [
-        'Grand pas en fente, mains au sol.',
-        'Ouvrez le bras côté jambe avant vers le plafond.',
-        'Revenez au sol et alternez.'
-      ],
-      progressions: {
-        1: 'Genou arrière posé au sol',
-        2: 'Jambe arrière tendue',
-        3: 'Fente + rotation + extension'
-      }
+      cues: ['À quatre pattes, mains sous les épaules', 'Expirez en arrondissant le dos', 'Inspirez en creusant doucement'],
+      levels: { 1: { label: 'Dos rond, dos creux', photo: 'cat-stretch', base: 30 } }
     },
     {
-      id: 'hip-flexor-pulse',
-      name: 'Étirement Psoas',
-      category: 'mobilite',
-      categoryLabel: 'Mobilité',
-      muscles: 'Psoas • Hanches',
+      id: 'hip-circles',
+      name: 'Cercles de hanches',
+      category: 'echauffement',
+      muscles: 'Hanches',
       mode: 'timer',
-      baseValue: 45,
-      unit: 's',
-      whyFor30s: 'Relâche la tension lombaire liée à la position assise.',
-      coachingCues: [
-        'Fente avant, buste bien vertical.',
-        'Poussez le bassin vers l’avant.',
-        'Changez de côté à mi-temps.'
-      ],
-      progressions: {
-        1: 'Fente légère debout',
-        2: 'Fente basse, fessier serré',
-        3: 'Micro-impulsions basses'
-      }
+      cues: ['Mains sur les hanches, genoux souples', 'Grands cercles lents', 'Changez de sens au bip'],
+      levels: { 1: { label: 'Cercles de hanches', photo: 'standing-hip-circles', base: 30 } }
     },
     {
-      id: 'controlled-squat',
+      id: 'inchworm',
+      name: 'Chenille',
+      category: 'echauffement',
+      muscles: 'Ischios • Épaules',
+      mode: 'timer',
+      cues: ['Penchez-vous, mains au sol', 'Marchez avec les mains jusqu’à la planche', 'Revenez en marchant, genoux pliés si besoin'],
+      levels: { 1: { label: 'Chenille', photo: 'inchworm', base: 30 } }
+    },
+    {
+      id: 'worlds-greatest',
+      name: 'Fente et rotation',
+      category: 'echauffement',
+      muscles: 'Hanches • Dos',
+      mode: 'timer',
+      cues: ['Grande fente, main au sol', 'Ouvrez l’autre bras vers le plafond', 'Changez de côté au bip'],
+      levels: { 1: { label: 'Fente et rotation', photo: 'worlds-greatest-stretch', base: 30 } }
+    },
+
+    // --- Bloc principal ---
+    {
+      id: 'squat',
       name: 'Squat',
-      category: 'bas',
-      categoryLabel: 'Jambes',
-      muscles: 'Quadriceps • Fessiers',
+      category: 'jambes',
+      muscles: 'Cuisses • Fessiers',
       mode: 'reps',
-      baseValue: 12,
-      unit: '×',
-      whyFor30s: 'Renforce cuisses et genoux.',
-      coachingCues: [
-        'Pieds largeur d’épaules, dos droit.',
-        'Hanches vers l’arrière jusqu’à 90°.',
-        'Poussez fort dans les talons.'
-      ],
-      progressions: {
-        1: 'Demi-squat contrôlé',
-        2: 'Squat complet parallèle',
-        3: 'Pause 2s en bas'
+      cues: ['Pieds largeur d’épaules', 'Fesses en arrière, dos droit', 'Poussez dans les talons pour remonter'],
+      levels: {
+        1: { label: 'Demi-squat', photo: 'bodyweight-squat', base: 10 },
+        2: { label: 'Squat complet', photo: 'bodyweight-squat', base: 12 },
+        3: { label: 'Squat sauté', photo: 'freehand-jump-squat', base: 10 }
       }
     },
     {
-      id: 'glute-bridge',
-      name: 'Pont Fessier',
-      category: 'bas',
-      categoryLabel: 'Jambes',
-      muscles: 'Fessiers • Lombaires',
+      id: 'fente',
+      name: 'Fente',
+      category: 'jambes',
+      muscles: 'Cuisses • Fessiers',
       mode: 'reps',
-      baseValue: 14,
-      unit: '×',
-      whyFor30s: 'Réactive les fessiers et stabilise le bassin.',
-      coachingCues: [
-        'Sur le dos, pieds à plat près des fessiers.',
-        'Montez le bassin jusqu’à aligner buste et genoux.',
-        'Serrez les fessiers 1s en haut.'
-      ],
-      progressions: {
-        1: 'Pause 1s en haut',
-        2: 'Pause 3s contraction max',
-        3: 'Sans reposer au sol'
+      perSide: true,
+      cues: ['Buste droit, regard devant', 'Genou avant au-dessus de la cheville', 'Genou arrière vers le sol, sans le cogner'],
+      levels: {
+        1: { label: 'Fente sur place', photo: 'split-squats', base: 8 },
+        2: { label: 'Fente arrière', photo: 'crossover-reverse-lunge', base: 10 },
+        3: { label: 'Fente marchée', photo: 'bodyweight-walking-lunge', base: 12 }
       }
     },
     {
-      id: 'reverse-lunge',
-      name: 'Fentes Alternées',
-      category: 'bas',
-      categoryLabel: 'Jambes',
-      muscles: 'Cuisses • Équilibre',
+      id: 'pont',
+      name: 'Pont fessier',
+      category: 'jambes',
+      muscles: 'Fessiers • Ischios',
       mode: 'reps',
-      baseValue: 12,
-      unit: '×',
-      whyFor30s: 'Équilibre la force gauche/droite des jambes.',
-      coachingCues: [
-        'Buste droit, fléchissez les deux genoux à 90°.',
-        'Genou avant aligné avec la cheville.',
-        'Repoussez et alternez.'
-      ],
-      progressions: {
-        1: 'Demi-amplitude stable',
-        2: 'Genou arrière frôlant le sol',
-        3: 'Pause 2s en bas'
+      cues: ['Sur le dos, pieds à plat près des fesses', 'Montez le bassin en serrant les fessiers', 'Redescendez lentement'],
+      levels: {
+        1: { label: 'Bascule du bassin', photo: 'pelvic-tilt-into-bridge', base: 10 },
+        2: { label: 'Pont fessier', photo: 'butt-lift-bridge', base: 12 },
+        3: { label: 'Pont sur une jambe', photo: 'single-leg-glute-bridge', base: 8, perSide: true }
       }
     },
     {
-      id: 'wall-sit',
-      name: 'Chaise au Mur',
-      category: 'bas',
-      categoryLabel: 'Jambes',
-      muscles: 'Quadriceps • Gainage',
-      mode: 'timer',
-      baseValue: 35,
-      unit: 's',
-      whyFor30s: 'Endurance musculaire des cuisses sans impact.',
-      coachingCues: [
-        'Dos plaqué au mur, genoux à 90°.',
-        'Fixe ou décollez un pied après l’autre.',
-        'Respirez calmement.'
-      ],
-      progressions: {
-        1: 'Statique légèrement haut',
-        2: 'À 90° talons alternés',
-        3: 'Montées de pieds alternées'
-      }
-    },
-    {
-      id: 'pushup-progression',
+      id: 'pompes',
       name: 'Pompes',
       category: 'haut',
-      categoryLabel: 'Haut',
-      muscles: 'Pectoraux • Triceps',
+      muscles: 'Pectoraux • Bras',
       mode: 'reps',
-      baseValue: 10,
-      unit: '×',
-      whyFor30s: 'Tonifie torse, épaules et bras.',
-      coachingCues: [
-        'Corps gainé en ligne droite.',
-        'Poitrine vers le sol, coudes à 45°.',
-        'Poussez en expirant.'
-      ],
-      progressions: {
-        1: 'Sur les genoux ou surélevé',
-        2: 'Classiques au sol',
-        3: 'Descente lente 3s'
+      cues: ['Mains un peu plus larges que les épaules', 'Corps gainé en une seule ligne', 'Descendez la poitrine, pas les hanches'],
+      levels: {
+        1: { label: 'Mains sur une chaise ou le canapé', photo: 'incline-push-up', base: 8 },
+        2: { label: 'Pompes au sol', photo: 'pushups', base: 8 },
+        3: { label: 'Pieds surélevés', photo: 'push-ups-with-feet-elevated', base: 8 }
       }
     },
     {
-      id: 'scapular-superman',
-      name: 'Superman Nageur',
+      id: 'superman',
+      name: 'Superman',
       category: 'haut',
-      categoryLabel: 'Haut',
-      muscles: 'Dos • Lombaires',
+      muscles: 'Dos • Épaules',
       mode: 'reps',
-      baseValue: 14,
-      unit: '×',
-      whyFor30s: 'Renforce toute la chaîne postérieure.',
-      coachingCues: [
-        'À plat ventre, décollez buste et jambes.',
-        'Regard vers le tapis (nuque longue).',
-        'Battements alternés bras/jambes.'
-      ],
-      progressions: {
-        1: 'Avec pause au sol',
-        2: 'Battements continus',
-        3: 'Maintien haut tonique'
+      cues: ['À plat ventre, bras devant', 'Décollez bras et jambes, regard au sol', 'Redescendez sans relâcher d’un coup'],
+      levels: {
+        1: { label: 'Bras seuls', photo: 'superman', base: 10 },
+        2: { label: 'Bras et jambes', photo: 'superman', base: 12 },
+        3: { label: 'Position tenue', photo: 'superman', base: 30, mode: 'timer' }
       }
     },
     {
-      id: 'pike-shoulder-press',
-      name: 'Touches d’Épaules',
-      category: 'haut',
-      categoryLabel: 'Haut',
-      muscles: 'Épaules • Gainage',
-      mode: 'reps',
-      baseValue: 14,
-      unit: '×',
-      whyFor30s: 'Stabilise les épaules et la sangle profonde.',
-      coachingCues: [
-        'Planche haute, pieds écartés.',
-        'Touchez l’épaule opposée en alternant.',
-        'Bassin fixe sans dandiner.'
-      ],
-      progressions: {
-        1: 'Sur les genoux',
-        2: 'Planche haute fluide',
-        3: 'Pause 2s par touche'
-      }
-    },
-    {
-      id: 'plank-core',
-      name: 'Gainage Rotation',
+      id: 'planche',
+      name: 'Planche',
       category: 'core',
-      categoryLabel: 'Abdos',
-      muscles: 'Abdos • Obliques',
+      muscles: 'Abdos • Épaules',
       mode: 'timer',
-      baseValue: 35,
-      unit: 's',
-      whyFor30s: 'Gaine la taille et protège les lombaires.',
-      coachingCues: [
-        'Sur les avant-bras, corps aligné.',
-        'Ouvrez un bras vers le plafond en alternant.',
-        'Ventre rentré, souffle régulier.'
-      ],
-      progressions: {
-        1: 'Planche fixe sans rotation',
-        2: 'Rotations alternées fluides',
-        3: 'Pause 2s bras ouvert'
+      cues: ['Coudes sous les épaules', 'Fessiers serrés, bassin aligné', 'Respirez calmement'],
+      levels: {
+        1: { label: 'Sur les genoux', photo: 'plank', base: 20 },
+        2: { label: 'Planche', photo: 'plank', base: 30 },
+        3: { label: 'Pompe + planche latérale', photo: 'push-up-to-side-plank', base: 6, mode: 'reps' }
       }
     },
     {
-      id: 'bird-dog',
-      name: 'Dead Bug',
+      id: 'dead-bug',
+      name: 'Dead bug',
       category: 'core',
-      categoryLabel: 'Abdos',
-      muscles: 'Transverse • Abdos',
+      muscles: 'Abdos profonds',
       mode: 'reps',
-      baseValue: 12,
-      unit: '×',
-      whyFor30s: 'Renforce les abdos profonds dos plaqué au sol.',
-      coachingCues: [
-        'Sur le dos, lombaires collées au sol.',
-        'Tendez bras et jambe opposés sans cambrer.',
-        'Revenez et alternez.'
-      ],
-      progressions: {
-        1: 'Jambes seules pliées',
-        2: 'Bras + jambe opposés',
-        3: 'Descente lente 3s'
+      cues: ['Sur le dos, bas du dos collé au sol', 'Bras vers le plafond, genoux à 90°', 'Allongez bras et jambe opposés'],
+      levels: {
+        1: { label: 'Jambes seules', photo: 'dead-bug', base: 8 },
+        2: { label: 'Bras et jambe opposés', photo: 'dead-bug', base: 10 },
+        3: { label: 'Descente lente (3 s)', photo: 'dead-bug', base: 10 }
       }
     },
     {
-      id: 'step-jacks',
-      name: 'Jumping Jacks',
-      category: 'cardio',
-      categoryLabel: 'Cardio',
-      muscles: 'Cardio • Mollets',
+      id: 'planche-laterale',
+      name: 'Planche latérale',
+      category: 'core',
+      muscles: 'Obliques • Hanches',
       mode: 'timer',
-      baseValue: 45,
-      unit: 's',
-      whyFor30s: 'Active le cœur et brûle des calories.',
-      coachingCues: [
-        'Écartez pieds et bras simultanément.',
-        'Atterrissage souple sur l’avant du pied.',
-        'Rythme régulier.'
-      ],
-      progressions: {
-        1: 'Sans saut (un pied après l’autre)',
-        2: 'Sauts souples réguliers',
-        3: 'Rythme rapide'
+      cues: ['Coude sous l’épaule', 'Hanches hautes, corps aligné', 'Changez de côté au bip'],
+      levels: {
+        1: { label: 'Sur les genoux', photo: 'side-bridge', base: 20 },
+        2: { label: 'Jambes tendues', photo: 'side-bridge', base: 30 },
+        3: { label: 'Tenue longue', photo: 'side-bridge', base: 40 }
       }
     },
     {
-      id: 'shadow-knees',
-      name: 'Mountain Climbers',
+      id: 'cardio',
+      name: 'Grimpeur',
       category: 'cardio',
-      categoryLabel: 'Cardio',
-      muscles: 'Cardio • Abdos',
+      muscles: 'Cardio • Gainage',
       mode: 'timer',
-      baseValue: 40,
-      unit: 's',
-      whyFor30s: 'Cardio intense et gainage abdominal.',
-      coachingCues: [
-        'Planche haute, mains sous les épaules.',
-        'Montez les genoux vers la poitrine en alternant.',
-        'Hanches basses et stables.'
-      ],
-      progressions: {
-        1: 'Pas contrôlés sans saut',
-        2: 'Rythme fluide continu',
-        3: 'Sprint dynamique'
+      cues: ['Position de pompe, mains sous les épaules', 'Ramenez un genou après l’autre', 'Gardez le dos plat'],
+      levels: {
+        1: { label: 'Grimpeur lent', photo: 'mountain-climbers', base: 25 },
+        2: { label: 'Grimpeur', photo: 'mountain-climbers', base: 30 },
+        3: { label: 'Saut en étoile', photo: 'star-jump', base: 30 }
       }
+    },
+
+    // --- Retour au calme ---
+    {
+      id: 'hip-flexor',
+      name: 'Étirement du psoas',
+      category: 'etirement',
+      muscles: 'Avant des hanches',
+      mode: 'timer',
+      cues: ['Un genou au sol, l’autre pied devant', 'Avancez le bassin doucement', 'Changez de côté au bip'],
+      levels: { 1: { label: 'Étirement du psoas', photo: 'kneeling-hip-flexor', base: 40 } }
+    },
+    {
+      id: 'childs-pose',
+      name: 'Posture de l’enfant',
+      category: 'etirement',
+      muscles: 'Dos • Épaules',
+      mode: 'timer',
+      cues: ['Assis sur les talons', 'Allongez les bras loin devant', 'Respirez lentement dans le dos'],
+      levels: { 1: { label: 'Posture de l’enfant', photo: 'childs-pose', base: 40 } }
+    },
+    {
+      id: 'hamstring',
+      name: 'Étirement des ischios',
+      category: 'etirement',
+      muscles: 'Arrière des cuisses',
+      mode: 'timer',
+      cues: ['Sur le dos, une jambe vers le plafond', 'Tenez derrière la cuisse', 'Changez de jambe au bip'],
+      levels: { 1: { label: 'Étirement des ischios', photo: '90-90-hamstring', base: 40 } }
+    },
+    {
+      id: 'spinal',
+      name: 'Torsion assise',
+      category: 'etirement',
+      muscles: 'Dos • Taille',
+      mode: 'timer',
+      cues: ['Assis bien droit', 'Tournez le buste lentement', 'Changez de côté au bip'],
+      levels: { 1: { label: 'Torsion assise', photo: 'spinal-stretch', base: 40 } }
     }
   ];
 
+  /**
+   * Cada sesión: calentamiento → bloque principal en varias vueltas → vuelta a la calma.
+   */
   const WORKOUT_TEMPLATES = [
     {
-      id: 'jour-1-fondations',
-      title: 'Full Body & Fondations',
-      durationMin: 14,
-      caloriesEst: 135,
-      tag: 'Full Body',
-      exerciseIds: [
-        'cat-cow',
-        'thoracic-opener',
-        'controlled-squat',
-        'pushup-progression',
-        'glute-bridge',
-        'bird-dog',
-        'plank-core',
-        'hip-flexor-pulse'
-      ]
+      id: 'force-a',
+      letter: 'A',
+      title: 'Jambes & poussée',
+      warmup: ['arm-circles', 'hip-circles', 'worlds-greatest'],
+      main: ['squat', 'pompes', 'pont', 'planche'],
+      cooldown: ['hip-flexor', 'childs-pose']
     },
     {
-      id: 'jour-2-posture-dos',
-      title: 'Dos & Posture',
-      durationMin: 11,
-      caloriesEst: 90,
-      tag: 'Posture',
-      exerciseIds: [
-        'cat-cow',
-        'thoracic-opener',
-        'scapular-superman',
-        'glute-bridge',
-        'bird-dog',
-        'hip-flexor-pulse'
-      ]
+      id: 'force-b',
+      letter: 'B',
+      title: 'Dos & gainage',
+      warmup: ['cat-stretch', 'arm-circles', 'inchworm'],
+      main: ['fente', 'superman', 'dead-bug', 'planche-laterale'],
+      cooldown: ['childs-pose', 'hamstring']
     },
     {
-      id: 'jour-3-cardio-abdos',
-      title: 'Cardio & Abdos',
-      durationMin: 15,
-      caloriesEst: 165,
-      tag: 'Cardio',
-      exerciseIds: [
-        'thoracic-opener',
-        'step-jacks',
-        'controlled-squat',
-        'bird-dog',
-        'shadow-knees',
-        'plank-core',
-        'step-jacks',
-        'hip-flexor-pulse'
-      ]
+      id: 'force-c',
+      letter: 'C',
+      title: 'Circuit complet',
+      warmup: ['hip-circles', 'inchworm', 'worlds-greatest'],
+      main: ['squat', 'pompes', 'fente', 'cardio'],
+      cooldown: ['hip-flexor', 'spinal']
     },
     {
-      id: 'jour-4-haut-carrure',
-      title: 'Haut du Corps',
-      durationMin: 15,
-      caloriesEst: 145,
-      tag: 'Haut',
-      exerciseIds: [
-        'cat-cow',
-        'thoracic-opener',
-        'pushup-progression',
-        'scapular-superman',
-        'pike-shoulder-press',
-        'pushup-progression',
-        'plank-core'
-      ]
-    },
-    {
-      id: 'jour-5-jambes-tonus',
-      title: 'Jambes & Gainage',
-      durationMin: 15,
-      caloriesEst: 155,
-      tag: 'Jambes',
-      exerciseIds: [
-        'hip-flexor-pulse',
-        'controlled-squat',
-        'glute-bridge',
-        'reverse-lunge',
-        'wall-sit',
-        'bird-dog',
-        'hip-flexor-pulse'
-      ]
-    },
-    {
-      id: 'jour-6-circuit-complet',
-      title: 'Circuit Complet',
-      durationMin: 16,
-      caloriesEst: 175,
-      tag: 'Circuit',
-      exerciseIds: [
-        'cat-cow',
-        'step-jacks',
-        'controlled-squat',
-        'pushup-progression',
-        'reverse-lunge',
-        'pike-shoulder-press',
-        'shadow-knees',
-        'plank-core'
-      ]
-    },
-    {
-      id: 'jour-7-recuperation',
-      title: 'Mobilité & Récupération',
-      durationMin: 10,
-      caloriesEst: 75,
-      tag: 'Mobilité',
-      exerciseIds: [
-        'cat-cow',
-        'thoracic-opener',
-        'hip-flexor-pulse',
-        'glute-bridge',
-        'scapular-superman',
-        'bird-dog'
-      ]
+      id: 'mobilite',
+      letter: 'M',
+      title: 'Mobilité',
+      optional: true,
+      warmup: [],
+      main: ['cat-stretch', 'worlds-greatest', 'hip-circles', 'hip-flexor', 'hamstring', 'spinal', 'childs-pose'],
+      cooldown: []
     }
   ];
 
-  const PROGRAM_WEEKS = [
-    {
-      weekNumber: 1,
-      title: 'Semaine 1',
-      days: [
-        { day: 1, title: 'J1 • Full Body', templateId: 'jour-1-fondations', xpReward: 120 },
-        { day: 2, title: 'J2 • Dos & Posture', templateId: 'jour-2-posture-dos', xpReward: 100 },
-        { day: 3, title: 'J3 • Cardio & Abdos', templateId: 'jour-3-cardio-abdos', xpReward: 130 },
-        { day: 4, title: 'J4 • Haut du Corps', templateId: 'jour-4-haut-carrure', xpReward: 130 },
-        { day: 5, title: 'J5 • Jambes', templateId: 'jour-5-jambes-tonus', xpReward: 135 },
-        { day: 6, title: 'J6 • Circuit', templateId: 'jour-6-circuit-complet', xpReward: 145 },
-        { day: 7, title: 'J7 • Mobilité', templateId: 'jour-7-recuperation', xpReward: 100 }
-      ]
-    },
-    {
-      weekNumber: 2,
-      title: 'Semaine 2',
-      days: [
-        { day: 8, title: 'J8 • Full Body', templateId: 'jour-1-fondations', xpReward: 135 },
-        { day: 9, title: 'J9 • Dos & Posture', templateId: 'jour-2-posture-dos', xpReward: 115 },
-        { day: 10, title: 'J10 • Cardio & Abdos', templateId: 'jour-3-cardio-abdos', xpReward: 145 },
-        { day: 11, title: 'J11 • Haut du Corps', templateId: 'jour-4-haut-carrure', xpReward: 145 },
-        { day: 12, title: 'J12 • Jambes', templateId: 'jour-5-jambes-tonus', xpReward: 150 },
-        { day: 13, title: 'J13 • Circuit', templateId: 'jour-6-circuit-complet', xpReward: 160 },
-        { day: 14, title: 'J14 • Mobilité', templateId: 'jour-7-recuperation', xpReward: 110 }
-      ]
-    },
-    {
-      weekNumber: 3,
-      title: 'Semaine 3',
-      days: [
-        { day: 15, title: 'J15 • Full Body', templateId: 'jour-1-fondations', xpReward: 155 },
-        { day: 16, title: 'J16 • Dos & Posture', templateId: 'jour-2-posture-dos', xpReward: 125 },
-        { day: 17, title: 'J17 • Cardio & Abdos', templateId: 'jour-3-cardio-abdos', xpReward: 165 },
-        { day: 18, title: 'J18 • Haut du Corps', templateId: 'jour-4-haut-carrure', xpReward: 165 },
-        { day: 19, title: 'J19 • Jambes', templateId: 'jour-5-jambes-tonus', xpReward: 170 },
-        { day: 20, title: 'J20 • Circuit', templateId: 'jour-6-circuit-complet', xpReward: 180 },
-        { day: 21, title: 'J21 • Mobilité', templateId: 'jour-7-recuperation', xpReward: 120 }
-      ]
-    },
-    {
-      weekNumber: 4,
-      title: 'Semaine 4',
-      days: [
-        { day: 22, title: 'J22 • Full Body', templateId: 'jour-1-fondations', xpReward: 180 },
-        { day: 23, title: 'J23 • Dos & Posture', templateId: 'jour-2-posture-dos', xpReward: 140 },
-        { day: 24, title: 'J24 • Cardio & Abdos', templateId: 'jour-3-cardio-abdos', xpReward: 190 },
-        { day: 25, title: 'J25 • Haut du Corps', templateId: 'jour-4-haut-carrure', xpReward: 195 },
-        { day: 26, title: 'J26 • Jambes', templateId: 'jour-5-jambes-tonus', xpReward: 200 },
-        { day: 27, title: 'J27 • Mobilité', templateId: 'jour-7-recuperation', xpReward: 140 },
-        { day: 28, title: 'J28 • Finale', templateId: 'jour-6-circuit-complet', xpReward: 250 }
-      ]
-    }
-  ];
+  /**
+   * Programa sin fin en ciclos de 4 semanas × 3 sesiones (A, B, C).
+   * Semana 1 base, 2 y 3 más volumen, 4 descarga. Desde el ciclo 2 se añade una vuelta.
+   */
+  const SESSIONS_PER_WEEK = 3;
+  const WEEKS_PER_CYCLE = 4;
+  const SESSION_ROTATION = ['force-a', 'force-b', 'force-c'];
+  const CYCLE_NAMES = ['Reprise', 'Fondations', 'Progression'];
+  const WEEK_FACTORS = [1, 1.1, 1.2, 0.8];
 
-  const DAILY_QUESTS = [];
-  const BADGES = [];
+  function getCycleName(cycleIndex) {
+    return CYCLE_NAMES[cycleIndex] || `Élan ${cycleIndex - CYCLE_NAMES.length + 1}`;
+  }
+
+  function getProgramPosition(sessionIndex) {
+    const n = Math.max(0, sessionIndex || 0);
+    const perCycle = SESSIONS_PER_WEEK * WEEKS_PER_CYCLE;
+    const cycleIndex = Math.floor(n / perCycle);
+    const sessionInCycle = n % perCycle;
+    const weekIndex = Math.floor(sessionInCycle / SESSIONS_PER_WEEK);
+    const sessionInWeek = sessionInCycle % SESSIONS_PER_WEEK;
+    const isDeload = weekIndex === WEEKS_PER_CYCLE - 1;
+    const baseRounds = cycleIndex === 0 ? 2 : 3;
+
+    return {
+      sessionIndex: n,
+      cycleIndex,
+      cycleName: getCycleName(cycleIndex),
+      sessionInCycle,
+      sessionsPerCycle: perCycle,
+      weekIndex,
+      weeksPerCycle: WEEKS_PER_CYCLE,
+      sessionInWeek,
+      sessionsPerWeek: SESSIONS_PER_WEEK,
+      isDeload,
+      isLastOfCycle: sessionInCycle === perCycle - 1,
+      templateId: SESSION_ROTATION[sessionInWeek],
+      rounds: isDeload ? Math.max(2, baseRounds - 1) : baseRounds,
+      volumeFactor: WEEK_FACTORS[weekIndex] * (1 + 0.05 * Math.min(cycleIndex, 6))
+    };
+  }
+
+  function getExerciseLevel(exercise, level) {
+    for (let l = Math.min(3, level || 1); l >= 1; l -= 1) {
+      if (exercise.levels[l]) {
+        const lv = exercise.levels[l];
+        return {
+          level: l,
+          label: lv.label,
+          photo: lv.photo,
+          base: lv.base,
+          mode: lv.mode || exercise.mode,
+          perSide: lv.perSide !== undefined ? lv.perSide : Boolean(exercise.perSide)
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Objetivo final de una serie: el calentamiento y los estiramientos no escalan con el volumen.
+   */
+  function computeTarget(exercise, level, volumeFactor, intensityMultiplier) {
+    const lv = getExerciseLevel(exercise, level);
+    const scales = exercise.category !== 'echauffement' && exercise.category !== 'etirement';
+    const raw = lv.base * (scales ? (volumeFactor || 1) * (intensityMultiplier || 1) : 1);
+    return lv.mode === 'timer'
+      ? Math.max(15, Math.round(raw / 5) * 5)
+      : Math.max(4, Math.round(raw));
+  }
+
+  function formatTarget(value, lv) {
+    if (lv.mode === 'timer') return `${value} s`;
+    return lv.perSide ? `${value} × 2 côtés` : `${value} ×`;
+  }
+
+  const REST_BETWEEN_EXERCISES = 25;
+  const REST_BETWEEN_ROUNDS = 60;
+  const TRANSITION_SECONDS = 10;
+
+  function estimateDurationMin(template, position, level, intensityMultiplier) {
+    const secondsFor = (id) => {
+      const ex = EXERCISES.find((e) => e.id === id);
+      const lv = getExerciseLevel(ex, level);
+      const target = computeTarget(ex, level, position.volumeFactor, intensityMultiplier);
+      return lv.mode === 'timer' ? target : target * 3.5 * (lv.perSide ? 2 : 1);
+    };
+    const rounds = template.optional ? 1 : position.rounds;
+    let total = 0;
+    template.warmup.concat(template.cooldown).forEach((id) => {
+      total += secondsFor(id) + TRANSITION_SECONDS;
+    });
+    total += rounds * template.main.reduce((sum, id) => sum + secondsFor(id) + REST_BETWEEN_EXERCISES, 0);
+    total += (rounds - 1) * (REST_BETWEEN_ROUNDS - REST_BETWEEN_EXERCISES);
+    return Math.max(5, Math.round(total / 60));
+  }
 
   return {
     ICONS,
     CATEGORY_ICONS,
+    CATEGORY_LABELS,
     EXERCISES,
     WORKOUT_TEMPLATES,
-    PROGRAM_WEEKS,
-    DAILY_QUESTS,
-    BADGES,
-    getExerciseIllustration,
+    REST_BETWEEN_EXERCISES,
+    REST_BETWEEN_ROUNDS,
+    TRANSITION_SECONDS,
+    getExerciseMedia,
+    getProgramPosition,
+    getExerciseLevel,
+    computeTarget,
+    formatTarget,
+    estimateDurationMin,
     getExerciseById(id) {
       return EXERCISES.find((ex) => ex.id === id) || EXERCISES[0];
     },
