@@ -118,7 +118,7 @@ window.AppController = (function createAppController() {
       return `<span class="prog-week-pill ${status}">S${w + 1}${w === position.weeksPerCycle - 1 ? ' · léger' : ''}</span>`;
     }).join('');
 
-    const sessionStepsHtml = ['A', 'B', 'C']
+    const sessionStepsHtml = D.SESSION_ROTATION.map((id) => D.getTemplateById(id).letter)
       .map((letter, i) => {
         const done = i < position.sessionInWeek;
         const isNext = i === position.sessionInWeek;
@@ -159,6 +159,7 @@ window.AppController = (function createAppController() {
               </div>
 
               <h1 class="hero-display-title">${template.title}</h1>
+              ${template.focus ? `<p class="hero-focus">${template.focus}</p>` : ''}
 
               <div class="hero-glass-stats">
                 <div class="glass-stat" title="Durée estimée">
@@ -235,7 +236,7 @@ window.AppController = (function createAppController() {
               <div class="bento-mini-kpis">
                 <div class="mini-kpi" title="Séances cette semaine">
                   <span class="kpi-icon">${ICONS.checkCircle}</span>
-                  <strong>${Math.min(doneThisWeek, 3)}/3</strong>
+                  <strong>${Math.min(doneThisWeek, position.sessionsPerWeek)}/${position.sessionsPerWeek}</strong>
                 </div>
                 <div class="mini-kpi" title="Semaines actives d’affilée">
                   <span class="kpi-icon">${ICONS.flame}</span>

@@ -294,28 +294,40 @@ window.AppData = (function createAppData() {
    */
   const WORKOUT_TEMPLATES = [
     {
-      id: 'force-a',
+      id: 'haut-a',
       letter: 'A',
-      title: 'Jambes & poussée',
-      warmup: ['arm-circles', 'hip-circles', 'worlds-greatest'],
-      main: ['squat', 'pompes', 'pont', 'planche'],
-      cooldown: ['hip-flexor', 'childs-pose']
+      title: 'Haut du corps',
+      focus: 'Pompes & dos',
+      warmup: ['arm-circles', 'cat-stretch', 'inchworm'],
+      main: ['pompes', 'superman', 'planche', 'dead-bug'],
+      cooldown: ['childs-pose', 'spinal']
     },
     {
-      id: 'force-b',
+      id: 'bas-a',
       letter: 'B',
-      title: 'Dos & gainage',
-      warmup: ['cat-stretch', 'arm-circles', 'inchworm'],
-      main: ['fente', 'superman', 'dead-bug', 'planche-laterale'],
-      cooldown: ['childs-pose', 'hamstring']
+      title: 'Bas du corps',
+      focus: 'Squats & fessiers',
+      warmup: ['hip-circles', 'worlds-greatest', 'inchworm'],
+      main: ['squat', 'pont', 'fente', 'planche-laterale'],
+      cooldown: ['hip-flexor', 'hamstring']
     },
     {
-      id: 'force-c',
+      id: 'haut-b',
       letter: 'C',
-      title: 'Circuit complet',
-      warmup: ['hip-circles', 'inchworm', 'worlds-greatest'],
-      main: ['squat', 'pompes', 'fente', 'cardio'],
-      cooldown: ['hip-flexor', 'spinal']
+      title: 'Haut du corps',
+      focus: 'Gainage & cardio',
+      warmup: ['arm-circles', 'cat-stretch', 'inchworm'],
+      main: ['pompes', 'superman', 'planche-laterale', 'cardio'],
+      cooldown: ['childs-pose', 'spinal']
+    },
+    {
+      id: 'bas-b',
+      letter: 'D',
+      title: 'Bas du corps',
+      focus: 'Fentes & fessiers',
+      warmup: ['hip-circles', 'worlds-greatest', 'inchworm'],
+      main: ['fente', 'squat', 'pont', 'dead-bug'],
+      cooldown: ['hip-flexor', 'hamstring']
     },
     {
       id: 'mobilite',
@@ -329,12 +341,13 @@ window.AppData = (function createAppData() {
   ];
 
   /**
-   * Programa sin fin en ciclos de 4 semanas × 3 sesiones (A, B, C).
+   * Programa sin fin en ciclos de 4 semanas × 4 sesiones alternando tren superior e inferior
+   * (A haut, B bas, C haut, D bas): cada zona descansa mientras se trabaja la otra.
    * Semana 1 base, 2 y 3 más volumen, 4 descarga. Desde el ciclo 2 se añade una vuelta.
    */
-  const SESSIONS_PER_WEEK = 3;
+  const SESSIONS_PER_WEEK = 4;
   const WEEKS_PER_CYCLE = 4;
-  const SESSION_ROTATION = ['force-a', 'force-b', 'force-c'];
+  const SESSION_ROTATION = ['haut-a', 'bas-a', 'haut-b', 'bas-b'];
   const CYCLE_NAMES = ['Reprise', 'Fondations', 'Progression'];
   const WEEK_FACTORS = [1, 1.1, 1.2, 0.8];
 
@@ -436,6 +449,7 @@ window.AppData = (function createAppData() {
     TRANSITION_SECONDS,
     getExerciseMedia,
     getProgramPosition,
+    SESSION_ROTATION,
     getExerciseLevel,
     computeTarget,
     formatTarget,

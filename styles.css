@@ -2659,3 +2659,9 @@ a,
 .prog-item.is-current {
   color: var(--primary);
 }
+
+.hero-focus {
+  margin: -0.35rem 0 0.25rem;
+  color: var(--hero-text-muted);
+  font-weight: 600;
+}
