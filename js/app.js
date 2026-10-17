@@ -482,7 +482,7 @@ window.AppController = (function createAppController() {
     return `
       ${mediaHtml(nextLv.photo, `${nextEx.name} : ${nextLv.label}`, { dim: true, animated: true })}
       ${playerTopHtml(session, step)}
-      <div class="player-bottom">
+      <div class="player-bottom is-rest">
         <div class="player-text">
           <div class="count">
             <span class="count-num" data-live="remaining">${step.remainingSeconds}</span>
@@ -493,6 +493,9 @@ window.AppController = (function createAppController() {
         <div class="next-up">
           <h2 class="display display-m">${nextEx.name}</h2>
           <p class="caps">${nextLv.label} · ${data.formatTarget(nextTarget, nextLv)}</p>
+          <ol class="rest-cues">
+            ${nextEx.cues.map((c) => `<li>${c}</li>`).join('')}
+          </ol>
         </div>
         <div class="btn-row">
           <button type="button" class="btn btn-outline" data-action="add-rest-time">+15 s</button>

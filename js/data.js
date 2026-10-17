@@ -196,7 +196,7 @@ window.AppData = (function createAppData() {
       category: 'haut',
       muscles: 'Dos • Épaules',
       mode: 'reps',
-      cues: ['À plat ventre, bras devant', 'Décollez bras et jambes, regard au sol', 'Redescendez sans relâcher d’un coup'],
+      cues: ['À plat ventre, bras devant', 'Décollez la poitrine et les bras, regard au sol', 'Redescendez sans relâcher d’un coup'],
       levels: {
         1: { label: 'Bras seuls', photo: 'superman', base: 10 },
         2: { label: 'Bras et jambes', photo: 'superman', base: 12 },
