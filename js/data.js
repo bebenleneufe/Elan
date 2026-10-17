@@ -428,6 +428,90 @@ window.AppData = (function createAppData() {
   // Jours sans séance de renforcement : marche d’un bon pas
   const WALK_TARGET_MIN = 30;
 
+  /**
+   * Marchas guiadas de 30 min. Las velocidades (km/h) dependen del nivel y de un ajuste
+   * personal que se aprende cuando el usuario acelera o frena durante la marcha.
+   */
+  const WALK_PACES = {
+    1: { easy: 3.0, moderate: 3.8, brisk: 4.5, fast: 5.0 },
+    2: { easy: 3.5, moderate: 4.2, brisk: 5.0, fast: 5.5 },
+    3: { easy: 4.0, moderate: 4.8, brisk: 5.5, fast: 6.0 }
+  };
+
+  const PACE_LABELS = {
+    easy: 'tranquille',
+    moderate: 'modérée',
+    brisk: 'soutenue',
+    fast: 'rapide'
+  };
+
+  const intervalBlock = [];
+  for (let i = 0; i < 5; i += 1) {
+    intervalBlock.push({ min: 2, pace: 'fast', label: 'Rapide' });
+    intervalBlock.push({ min: 2, pace: 'moderate', label: 'Récupération' });
+  }
+
+  const WALK_PROGRAMS = [
+    {
+      id: 'reguliere',
+      title: 'Régulière',
+      summary: '5 min tranquille, 20 min soutenue, 5 min tranquille',
+      segments: [
+        { min: 5, pace: 'easy', label: 'Échauffement' },
+        { min: 20, pace: 'brisk', label: 'Allure soutenue' },
+        { min: 5, pace: 'easy', label: 'Retour au calme' }
+      ]
+    },
+    {
+      id: 'intervalles',
+      title: 'Intervalles',
+      summary: '5 × (2 min rapide, 2 min modérée), encadrés de 5 min tranquilles',
+      segments: [{ min: 5, pace: 'easy', label: 'Échauffement' }]
+        .concat(intervalBlock)
+        .concat([{ min: 5, pace: 'easy', label: 'Retour au calme' }])
+    },
+    {
+      id: 'pyramide',
+      title: 'Pyramide',
+      summary: 'l’allure monte toutes les 5 min, puis redescend',
+      segments: [
+        { min: 5, pace: 'easy', label: 'Échauffement' },
+        { min: 5, pace: 'moderate', label: 'Modérée' },
+        { min: 5, pace: 'brisk', label: 'Soutenue' },
+        { min: 5, pace: 'fast', label: 'Rapide' },
+        { min: 5, pace: 'moderate', label: 'Modérée' },
+        { min: 5, pace: 'easy', label: 'Retour au calme' }
+      ]
+    }
+  ];
+
+  function getWalkProgram(walkIndex) {
+    const n = WALK_PROGRAMS.length;
+    return WALK_PROGRAMS[(((walkIndex || 0) % n) + n) % n];
+  }
+
+  function getWalkProgramById(id) {
+    return WALK_PROGRAMS.find((p) => p.id === id) || null;
+  }
+
+  function getWalkSpeed(pace, level, offset) {
+    const table = WALK_PACES[Math.min(3, Math.max(1, level || 1))];
+    return Math.round((table[pace] + (offset || 0)) * 10) / 10;
+  }
+
+  // Segmento en curso para un tiempo transcurrido (en segundos)
+  function getWalkSegmentAt(program, elapsedS) {
+    let start = 0;
+    for (let i = 0; i < program.segments.length; i += 1) {
+      const end = start + program.segments[i].min * 60;
+      if (elapsedS < end) {
+        return { index: i, segment: program.segments[i], next: program.segments[i + 1] || null, remainingS: end - elapsedS, done: false };
+      }
+      start = end;
+    }
+    return { index: program.segments.length, segment: null, next: null, remainingS: 0, done: true };
+  }
+
   const REST_BETWEEN_EXERCISES = 25;
   const REST_BETWEEN_ROUNDS = 60;
   const TRANSITION_SECONDS = 10;
@@ -456,6 +540,12 @@ window.AppData = (function createAppData() {
     EXERCISES,
     WORKOUT_TEMPLATES,
     WALK_TARGET_MIN,
+    WALK_PROGRAMS,
+    PACE_LABELS,
+    getWalkProgram,
+    getWalkProgramById,
+    getWalkSpeed,
+    getWalkSegmentAt,
     REST_BETWEEN_EXERCISES,
     REST_BETWEEN_ROUNDS,
     TRANSITION_SECONDS,

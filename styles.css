@@ -1227,3 +1227,40 @@ ul {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* Marche guidée */
+.walk-program-segs {
+  margin-bottom: 2px;
+}
+
+.walk-seg-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.8rem;
+}
+
+.walk-seg-label > span:first-child {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 8.5vw, 2.6rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  line-height: 0.95;
+}
+
+.tm-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tm-auto {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.tm-auto[aria-pressed='true'] {
+  color: var(--sand);
+}

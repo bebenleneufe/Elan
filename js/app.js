@@ -180,6 +180,7 @@ window.AppController = (function createAppController() {
       ? position.isDeload ? 'Semaine légère' : `Séance ${template.letter}`
       : plan.kind === 'done' && plan.did === 'strength' ? 'Prochaine séance' : `Séance ${template.letter} · plus tard`;
 
+    const walkProgram = data.getWalkProgram(state.totalWalks || 0);
     let dayItem = '';
     if (plan.kind === 'walk') {
       dayItem = `
@@ -188,10 +189,16 @@ window.AppController = (function createAppController() {
           <div class="feed-content">
             <div class="feed-text">
               <div class="count"><span class="count-num">${data.WALK_TARGET_MIN}</span><span class="count-unit">min</span></div>
-              <h1 class="display display-xl">Marche</h1>
-              <p class="lede">D’un bon pas : tu peux parler, pas chanter. Ça entretient le cœur et aide les muscles à récupérer.</p>
+              <h1 class="display display-xl">Marche ${walkProgram.title.toLowerCase()}</h1>
+              <p class="lede">${walkProgram.summary.charAt(0).toUpperCase() + walkProgram.summary.slice(1)}.</p>
+              <div class="meta-line">
+                ${['easy', 'moderate', 'brisk', 'fast']
+                  .filter((pace) => walkProgram.segments.some((s) => s.pace === pace))
+                  .map((pace) => `<span class="caps">${data.PACE_LABELS[pace]} ${data.getWalkSpeed(pace, level, state.walkSpeedOffset).toFixed(1).replace('.', ',')}</span>`)
+                  .join('')}
+              </div>
             </div>
-            <button type="button" class="btn btn-primary btn-block" data-action="walk-start">
+            <button type="button" class="btn btn-primary btn-block" data-action="walk-start" data-walk-program="${walkProgram.id}">
               ${ICONS.play}
               <span>Lancer la marche</span>
             </button>
@@ -301,7 +308,7 @@ window.AppController = (function createAppController() {
                   <h2 class="display display-l">Marche libre</h2>
                   <p class="lede">Quand tu veux, en plus du programme. Pratique aussi pour essayer le tapis.</p>
                 </div>
-                <button type="button" class="btn btn-outline btn-block" data-action="walk-start">
+                <button type="button" class="btn btn-outline btn-block" data-action="walk-start" data-walk-program="free">
                   ${ICONS.play}
                   <span>Lancer une marche</span>
                 </button>
@@ -887,6 +894,89 @@ window.AppController = (function createAppController() {
       window.AudioFeedback.playVictory();
       showToast(`${D().WALK_TARGET_MIN} min, bravo`);
     }
+    tickWalkProgram(walk, ms, layer);
+  }
+
+  /* Marche guidée : segments, annonces et vitesse automatique du tapis */
+  function walkProgramOf(walk) {
+    return walk && walk.programId ? D().getWalkProgramById(walk.programId) : null;
+  }
+
+  function currentWalkSpeed(segment) {
+    const st = window.AppStorage.getState();
+    return D().getWalkSpeed(segment.pace, st.fitnessLevel, st.walkSpeedOffset);
+  }
+
+  function formatKmh(kmh) {
+    return `${kmh.toFixed(1).replace('.', ',')} km/h`;
+  }
+
+  function applyWalkAutoSpeed() {
+    const walk = loadWalk();
+    const program = walkProgramOf(walk);
+    const T = window.Treadmill;
+    if (!program || !walk.auto || !T) return;
+    const tm = T.getState();
+    if (tm.phase !== 'ready' || !tm.running) return;
+    const pos = D().getWalkSegmentAt(program, walkElapsedMs(walk) / 1000);
+    if (pos.done) return;
+    T.setSpeed(currentWalkSpeed(pos.segment)).catch((error) => showToast(`Tapis : ${error.message}`));
+  }
+
+  function tickWalkProgram(walk, ms, layer) {
+    const program = walkProgramOf(walk);
+    if (!program) return;
+    const pos = D().getWalkSegmentAt(program, ms / 1000);
+
+    if (pos.index !== walk.segIdx) {
+      const first = walk.segIdx === undefined || walk.segIdx < 0;
+      walk.segIdx = pos.index;
+      saveWalk(walk);
+      if (!first) {
+        if (pos.done) {
+          showToast('Programme terminé · continue si tu veux');
+        } else {
+          window.AudioFeedback.playStepReady();
+          showToast(`${pos.segment.label} · ${formatKmh(currentWalkSpeed(pos.segment))}`);
+          applyWalkAutoSpeed();
+        }
+      }
+      renderWalkLayer();
+      return;
+    }
+
+    const segClock = layer.querySelector('[data-walk="seg-clock"]');
+    const total = layer.querySelector('[data-walk="total"]');
+    if (segClock) segClock.textContent = formatClock(pos.remainingS * 1000);
+    if (total) total.textContent = `Total ${formatClock(ms)} / ${D().WALK_TARGET_MIN}:00`;
+    const r = Math.ceil(pos.remainingS);
+    if (!walk.pausedAt && !pos.done && pos.next && r > 0 && r <= 3) {
+      window.AudioFeedback.playCountdownTick(r);
+    }
+  }
+
+  function walkProgramHtml(walk, program) {
+    const ms = walkElapsedMs(walk);
+    const pos = D().getWalkSegmentAt(program, ms / 1000);
+    const segs = program.segments
+      .map((s, i) => `<span class="seg ${i < pos.index ? 'is-done' : i === pos.index ? 'is-current' : ''}" style="flex: ${s.min}"></span>`)
+      .join('');
+    const now = pos.done
+      ? '<p class="caps">Programme terminé · continue si tu veux</p>'
+      : `<p class="walk-seg-label"><span>${pos.segment.label}</span> <span class="caps">${formatKmh(currentWalkSpeed(pos.segment))}</span></p>`;
+    const next = pos.next
+      ? `<p class="caps">Ensuite : ${pos.next.label.toLowerCase()} · ${formatKmh(currentWalkSpeed(pos.next))}</p>`
+      : '';
+    return {
+      segments: `<div class="segments walk-program-segs" aria-hidden="true">${segs}</div>`,
+      body: `
+        ${now}
+        <div class="count"><span class="count-num" data-walk="seg-clock">${formatClock(pos.remainingS * 1000)}</span></div>
+        ${next}
+        <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>
+        <p class="caps" data-walk="total"></p>
+      `
+    };
   }
 
   function renderWalkLayer() {
@@ -904,21 +994,28 @@ window.AppController = (function createAppController() {
     }
 
     const ICONS = D().ICONS;
+    const program = walkProgramOf(walk);
+    const guided = program ? walkProgramHtml(walk, program) : null;
     layer.classList.remove('is-hidden');
     layer.setAttribute('aria-hidden', 'false');
     layer.innerHTML = `
       <div class="stage">
         <div class="player-top">
+          ${guided ? guided.segments : ''}
           <div class="player-top-row">
-            <span class="caps">Marche · objectif ${D().WALK_TARGET_MIN} min</span>
+            <span class="caps">${program ? `Marche ${program.title.toLowerCase()}${walk.pausedAt ? ' · en pause' : ''}` : `Marche · objectif ${D().WALK_TARGET_MIN} min`}</span>
             <button type="button" class="icon-btn" data-action="walk-close" aria-label="Terminer la marche">${ICONS.close}</button>
           </div>
         </div>
         <div class="player-bottom walk-bottom">
           ${treadmillPanelHtml()}
-          <p class="caps" data-walk="status"></p>
-          <div class="count"><span class="count-num" data-walk="clock">0:00</span></div>
-          <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>
+          ${
+            guided
+              ? guided.body
+              : `<p class="caps" data-walk="status"></p>
+                 <div class="count"><span class="count-num" data-walk="clock">0:00</span></div>
+                 <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>`
+          }
           <p class="fine-print">Tu peux verrouiller le téléphone : le chrono continue.</p>
           <div class="btn-row">
             <button type="button" class="btn btn-outline" data-action="walk-toggle">${walk.pausedAt ? 'Reprendre' : 'Pause'}</button>
@@ -934,9 +1031,10 @@ window.AppController = (function createAppController() {
     walkTimer = setInterval(tickWalk, 1000);
   }
 
-  function startWalk() {
+  function startWalk(programId) {
     if (!loadWalk()) {
-      saveWalk({ startedAt: Date.now(), pausedMs: 0, pausedAt: null, notified: false });
+      const program = programId && programId !== 'free' ? programId : null;
+      saveWalk({ startedAt: Date.now(), pausedMs: 0, pausedAt: null, notified: false, programId: program, segIdx: -1, auto: true });
     }
     pushLayer('walk');
     renderWalkLayer();
@@ -1048,6 +1146,12 @@ window.AppController = (function createAppController() {
     }
 
     const totals = walkTreadmillTotals(loadWalk());
+    const walk = loadWalk();
+    const autoToggle = walkProgramOf(walk)
+      ? `<button type="button" class="tm-auto" data-action="tm-auto" aria-pressed="${walk.auto ? 'true' : 'false'}">
+          Vitesse auto · ${walk.auto ? 'oui' : 'non'}
+        </button>`
+      : '';
     return `
       <div class="tm-panel">
         <div class="tm-live">
@@ -1061,7 +1165,8 @@ window.AppController = (function createAppController() {
           </button>
           <button type="button" class="btn btn-outline tm-step" data-action="tm-faster" aria-label="Plus vite">${ICONS.plus}</button>
         </div>
-        ${logLink}${logHtml}
+        <div class="tm-links">${autoToggle}${logLink}</div>
+        ${logHtml}
       </div>
     `;
   }
@@ -1088,8 +1193,15 @@ window.AppController = (function createAppController() {
 
   function bindTreadmill() {
     if (!window.Treadmill) return;
+    let wasRunning = false;
     window.Treadmill.subscribe((kind, tm) => {
       if (kind === 'telemetry') accumulateTreadmill(tm);
+      // La bande démarre à sa vitesse minimale : en marche guidée, on rejoint l’allure du segment
+      if (tm.running && !wasRunning) {
+        const walk = loadWalk();
+        if (walk && walk.auto && walkProgramOf(walk)) setTimeout(applyWalkAutoSpeed, 2500);
+      }
+      wasRunning = tm.running;
       if (!isWalkOpen()) return;
       if (kind === 'telemetry') patchTreadmillLive();
       else renderWalkLayer();
@@ -1105,6 +1217,24 @@ window.AppController = (function createAppController() {
       window.AudioFeedback.playTap();
       // Le tapis démarre à sa vitesse minimale : on accélère ensuite avec +
       treadmillAction(() => (tm.running ? T.pause() : T.start()));
+    } else if (action === 'tm-auto') {
+      const walk = loadWalk();
+      if (walk) {
+        walk.auto = !walk.auto;
+        saveWalk(walk);
+        if (walk.auto) applyWalkAutoSpeed();
+        renderWalkLayer();
+      }
+    } else if ((action === 'tm-faster' || action === 'tm-slower') && walkProgramOf(loadWalk()) && loadWalk().auto) {
+      // En marche guidée, + / − décalent toutes les allures (mémorisé pour les prochaines marches)
+      window.AudioFeedback.playTap();
+      const st = window.AppStorage.getState();
+      const delta = action === 'tm-faster' ? 0.5 : -0.5;
+      const offset = Math.max(-1.5, Math.min(1.5, (st.walkSpeedOffset || 0) + delta));
+      window.AppStorage.updatePreferences({ walkSpeedOffset: offset });
+      showToast(`Allures ${offset >= 0 ? '+' : ''}${offset.toFixed(1).replace('.', ',')} km/h`);
+      applyWalkAutoSpeed();
+      renderWalkLayer();
     } else if (action === 'tm-faster' || action === 'tm-slower') {
       window.AudioFeedback.playTap();
       const base = tm.targetKmh || tm.speedKmh || tm.minKmh;
@@ -1297,7 +1427,7 @@ window.AppController = (function createAppController() {
         handleTreadmillClick(action);
       } else if (action === 'walk-start') {
         window.AudioFeedback.playTap();
-        startWalk();
+        startWalk(actionBtn.getAttribute('data-walk-program'));
       } else if (action === 'walk-log') {
         logWalk(window.AppData.WALK_TARGET_MIN);
       } else if (action === 'walk-toggle') {

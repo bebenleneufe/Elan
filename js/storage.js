@@ -25,6 +25,7 @@ window.AppStorage = (function createAppStorage() {
       cycleHardCount: 0, // Sesiones juzgadas "intensas" en el ciclo en curso
       totalWorkouts: 0,
       totalWalks: 0,
+      walkSpeedOffset: 0, // Ajuste personal de las velocidades de marcha (km/h)
       totalMinutes: 0,
       lastActiveDate: null,
       workoutHistory: [],
