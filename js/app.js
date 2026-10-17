@@ -1,351 +1,387 @@
 /**
- * Se prioriza la iconografía vectorial y los indicadores visuales directos por encima del texto
- * extenso para que toda la interfaz se lea de un vistazo en móvil.
+ * Flujo a pantalla completa: cada momento (la sesión del día, un ejercicio, un descanso)
+ * ocupa toda la pantalla y el siguiente está a un gesto vertical.
  */
 window.AppController = (function createAppController() {
   let currentView = 'dashboard';
   let currentExerciseFilter = 'all';
   let lastOverlayKey = null;
-
-  const RING_RADIUS = 80;
-  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+  let lastStepIndex = -1;
+  let feedObserver = null;
 
   const SECTION_LABELS = {
     warmup: 'Échauffement',
     cooldown: 'Retour au calme'
   };
 
+  function D() {
+    return window.AppData;
+  }
+
   function sectionLabel(step) {
     if (step.section === 'main') return `Tour ${step.round}/${step.totalRounds}`;
     return SECTION_LABELS[step.section] || '';
   }
 
-  function buildWeekStripHtml(state) {
-    const dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-    const now = new Date();
-    const currentDayOfWeek = (now.getDay() + 6) % 7;
-    const activeDates = new Set(state.workoutHistory.map((h) => h.date));
-
-    return dayNames
-      .map((label, idx) => {
-        const d = new Date(now);
-        d.setDate(now.getDate() - (currentDayOfWeek - idx));
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const dayNum = String(d.getDate()).padStart(2, '0');
-        const iso = `${y}-${m}-${dayNum}`;
-
-        const isToday = idx === currentDayOfWeek;
-        const isDone = activeDates.has(iso);
-
-        return `
-          <div class="week-day-pill ${isToday ? 'is-today' : ''} ${isDone ? 'is-done' : ''}">
-            <span class="week-day-name">${label}</span>
-            <span class="week-day-circle">
-              ${isDone ? window.AppData.ICONS.check : d.getDate()}
-            </span>
-          </div>
-        `;
-      })
-      .join('');
-  }
-
-  function applyThemeAndAudioState(state) {
-    document.documentElement.setAttribute('data-theme', state.theme || 'light');
-    window.AudioFeedback.setMuted(Boolean(state.soundMuted));
-
-    const themeBtn = document.getElementById('btn-theme-toggle');
-    if (themeBtn) {
-      themeBtn.innerHTML =
-        state.theme === 'dark' ? window.AppData.ICONS.sun : window.AppData.ICONS.moon;
-    }
-
-    const soundBtn = document.getElementById('btn-sound-toggle');
-    if (soundBtn) {
-      soundBtn.innerHTML = state.soundMuted
-        ? window.AppData.ICONS.volumeX
-        : window.AppData.ICONS.volume2;
-    }
-
-    const streakEl = document.getElementById('header-streak-val');
-    if (streakEl) {
-      streakEl.textContent = String(window.AppStorage.getWeeklyStreak(state));
-    }
-  }
-
-  function buildExerciseRowHtml(exerciseId, state, position, index) {
-    const D = window.AppData;
-    const ex = D.getExerciseById(exerciseId);
-    const lv = D.getExerciseLevel(ex, state.fitnessLevel);
-    const target = D.computeTarget(ex, lv.level, position.volumeFactor, state.intensityMultiplier);
-    const modeIcon = lv.mode === 'timer' ? D.ICONS.clock : D.ICONS.repeat;
-
+  /**
+   * La foto conserva su encuadre 3:2 y se apoya justo encima del texto, que la solapa bajo el velo;
+   * una copia desenfocada llena el resto de la pantalla.
+   */
+  function mediaHtml(photo, alt, opts) {
+    const o = opts || {};
     return `
-      <div class="circuit-row" data-action="open-exercise-modal" data-exercise-id="${ex.id}" role="button" tabindex="0">
-        <div class="circuit-step-num">${index}</div>
-        <div class="circuit-gif-thumb">
-          <img src="assets/photos/${lv.photo}/1.jpg" alt="" loading="lazy" decoding="async" />
-        </div>
-        <div class="circuit-info">
-          <strong>${ex.name}</strong>
-          <span class="circuit-meta-icon">${lv.label}</span>
-        </div>
-        <div class="circuit-badge">
-          ${modeIcon}
-          <span>${D.formatTarget(target, lv)}</span>
-        </div>
+      <div class="media">
+        <img class="media-backdrop" src="assets/photos/${photo}/1.jpg" alt="" aria-hidden="true" decoding="async" />
       </div>
+      <div class="scrim"></div>
+      ${
+        o.stacked
+          ? `<div class="media-frame is-stacked">
+              <img src="assets/photos/${photo}/0.jpg" alt="${alt} (début)" decoding="async" />
+              <img src="assets/photos/${photo}/1.jpg" alt="${alt} (fin)" decoding="async" />
+            </div>`
+          : `<div class="media-frame ${o.dim ? 'is-dim' : ''}">${D().getExerciseMedia(photo, alt, o.animated ? 'is-animated' : '')}</div>`
+      }
     `;
   }
 
+  function applyAudioState(state) {
+    window.AudioFeedback.setMuted(Boolean(state.soundMuted));
+  }
+
+  function soundRailButton(state) {
+    const ICONS = D().ICONS;
+    return `
+      <button type="button" class="rail-btn" data-action="toggle-sound" aria-pressed="${state.soundMuted ? 'true' : 'false'}" aria-label="${state.soundMuted ? 'Activer le son' : 'Couper le son'}">
+        ${state.soundMuted ? ICONS.volumeX : ICONS.volume2}
+        <span>${state.soundMuted ? 'Muet' : 'Son'}</span>
+      </button>
+    `;
+  }
+
+  function formatShortDate(iso) {
+    const [, m, d] = iso.split('-');
+    return `${d}/${m}`;
+  }
+
+  /* ---------------------------------------------------------------------
+     Accueil
+     --------------------------------------------------------------------- */
   function renderDashboardView(state) {
     const container = document.getElementById('view-dashboard');
     if (!container) return;
 
-    const D = window.AppData;
-    const ICONS = D.ICONS;
-    const position = D.getProgramPosition(state.programSessionIndex);
-    const template = D.getTemplateById(position.templateId);
-    const mobility = D.getTemplateById('mobilite');
-    const durationMin = D.estimateDurationMin(template, position, state.fitnessLevel, state.intensityMultiplier);
-    const mobilityMin = D.estimateDurationMin(mobility, position, 1, 1);
-    const cyclePct = Math.round((position.sessionInCycle / position.sessionsPerCycle) * 100);
+    const data = D();
+    const ICONS = data.ICONS;
+    const position = data.getProgramPosition(state.programSessionIndex);
+    const template = data.getTemplateById(position.templateId);
+    const mobility = data.getTemplateById('mobilite');
+    const level = state.fitnessLevel;
+    const durationMin = data.estimateDurationMin(template, position, level, state.intensityMultiplier);
+    const mobilityMin = data.estimateDurationMin(mobility, position, 1, 1);
     const weekStreak = window.AppStorage.getWeeklyStreak(state);
-    const doneThisWeek = window.AppStorage.countSessionsThisWeek(state);
+    const leadEx = data.getExerciseById(template.main[0]);
+    const leadLv = data.getExerciseLevel(leadEx, level);
 
-    const weekPillsHtml = Array.from({ length: position.weeksPerCycle }, (_, w) => {
-      const status = w < position.weekIndex ? 'is-done' : w === position.weekIndex ? 'is-active' : '';
-      return `<span class="prog-week-pill ${status}">S${w + 1}${w === position.weeksPerCycle - 1 ? ' · léger' : ''}</span>`;
+    const weekSegments = data.SESSION_ROTATION.map((id, i) => {
+      const cls = i < position.sessionInWeek ? 'is-done' : i === position.sessionInWeek ? 'is-current' : '';
+      return `<span class="seg ${cls}"></span>`;
     }).join('');
 
-    const sessionStepsHtml = D.SESSION_ROTATION.map((id) => D.getTemplateById(id).letter)
-      .map((letter, i) => {
-        const done = i < position.sessionInWeek;
-        const isNext = i === position.sessionInWeek;
-        return `
-          <div class="prog-day-step ${done ? 'is-done' : ''} ${isNext ? 'is-selected is-next' : ''}">
-            <span class="step-j-label">Séance</span>
-            <span class="step-j-dot">${done ? ICONS.check : letter}</span>
+    const listItem = (title, ids, photoId) => {
+      if (!ids.length) return '';
+      const first = data.getExerciseById(ids[0]);
+      const rows = ids
+        .map((id) => {
+          const ex = data.getExerciseById(id);
+          const lv = data.getExerciseLevel(ex, level);
+          return `<li><span>${ex.name}</span><span>${data.formatTarget(data.computeTarget(ex, lv.level, position.volumeFactor, state.intensityMultiplier), lv)}</span></li>`;
+        })
+        .join('');
+      return `
+        <article class="feed-item">
+          ${mediaHtml(data.getExerciseLevel(first, 1).photo, first.name, { animated: true })}
+          <div class="feed-content">
+            <div class="feed-text">
+              <h2 class="display display-l">${title}</h2>
+            </div>
+            <ul class="name-list">${rows}</ul>
           </div>
+        </article>
+      `;
+    };
+
+    const mainItems = template.main
+      .map((id) => {
+        const ex = data.getExerciseById(id);
+        const lv = data.getExerciseLevel(ex, level);
+        const target = data.computeTarget(ex, lv.level, position.volumeFactor, state.intensityMultiplier);
+        return `
+          <article class="feed-item has-stack">
+            ${mediaHtml(lv.photo, `${ex.name} : ${lv.label}`, { stacked: true })}
+            <div class="rail">
+              <button type="button" class="rail-btn" data-action="open-exercise-modal" data-exercise-id="${ex.id}" aria-label="Consignes : ${ex.name}">
+                ${ICONS.info}
+                <span>Infos</span>
+              </button>
+            </div>
+            <div class="feed-content">
+              <div class="feed-text">
+                <h2 class="display display-l">${ex.name}</h2>
+                <p class="caps">${lv.label}</p>
+                <p class="target-line">${data.formatTarget(target, lv)} · ${position.rounds} tours</p>
+              </div>
+            </div>
+          </article>
         `;
       })
       .join('');
 
-    let rowIndex = 0;
-    const listSection = (title, ids, extra) =>
-      ids.length
-        ? `
-          <div class="circuit-section-title">${title}${extra ? ` <span>${extra}</span>` : ''}</div>
-          ${ids.map((id) => buildExerciseRowHtml(id, state, position, (rowIndex += 1))).join('')}
-        `
-        : '';
+    const ticks = Array.from({ length: position.sessionsPerCycle }, (_, i) => {
+      const cls = i < position.sessionInCycle ? 'is-done' : i === position.sessionInCycle ? 'is-current' : '';
+      return `<span class="${cls}"></span>`;
+    }).join('');
+
+    const history = state.workoutHistory.slice(0, 6);
+    const historyHtml = history.length
+      ? `<ul class="history">
+          ${history
+            .map((h) => {
+              const tpl = data.WORKOUT_TEMPLATES.find((t) => t.id === h.templateId);
+              const name = tpl ? (tpl.optional ? tpl.title : `${tpl.letter} · ${tpl.title}`) : h.title;
+              return `<li><time datetime="${h.date}">${formatShortDate(h.date)}</time><span>${name}</span><span class="h-dur">${h.durationMin} min</span></li>`;
+            })
+            .join('')}
+        </ul>`
+      : '<p class="empty-note">Ta première séance s’affichera ici.</p>';
+
+    const savedScroll = container.scrollTop;
 
     container.innerHTML = `
-      <div class="bento-dashboard">
-        <section class="bento-hero-split">
-          <div class="hero-dark-panel">
-            <div class="program-roadmap-bar">
-              <div class="roadmap-weeks-row">
-                <span class="roadmap-week-tag">Cycle ${position.cycleIndex + 1} · ${position.cycleName}</span>
-              </div>
-              <div class="roadmap-weeks-tabs" aria-label="Semaines du cycle">${weekPillsHtml}</div>
-              <div class="roadmap-days-row" aria-label="Séances de la semaine">${sessionStepsHtml}</div>
-            </div>
+      <article class="feed-item" id="feed-today">
+        ${mediaHtml(leadLv.photo, `${leadEx.name} : ${leadLv.label}`)}
+        <div class="feed-top">
+          <div class="segments" aria-label="Séances de la semaine">${weekSegments}</div>
+          <p class="caps">
+            <span>${position.cycleName} · semaine ${position.weekIndex + 1}/${position.weeksPerCycle}</span>
+            <span>${position.isDeload ? 'Semaine légère' : `Séance ${template.letter}`}</span>
+          </p>
+        </div>
 
-            <div class="hero-body-content">
-              <div class="hero-eyebrow-row">
-                <span class="hero-eyebrow-pill">Séance ${template.letter} · Semaine ${position.weekIndex + 1}</span>
-                ${position.isDeload ? `<span class="hero-next-pill">${ICONS.wind} Semaine légère</span>` : ''}
-              </div>
+        <div class="rail">
+          <button type="button" class="rail-btn" data-action="cycle-level" aria-label="Changer de niveau (actuel : ${level})">
+            ${ICONS.sliders}
+            <span>Niv. ${level}</span>
+          </button>
+          ${soundRailButton(state)}
+          <button type="button" class="rail-btn" data-action="scroll-to-progress" aria-label="Voir la progression">
+            ${ICONS.list}
+            <span>Suivi</span>
+          </button>
+        </div>
 
-              <h1 class="hero-display-title">${template.title}</h1>
-              ${template.focus ? `<p class="hero-focus">${template.focus}</p>` : ''}
-
-              <div class="hero-glass-stats">
-                <div class="glass-stat" title="Durée estimée">
-                  <span class="glass-stat-icon">${ICONS.clock}</span>
-                  <strong>~${durationMin} min</strong>
-                </div>
-                <div class="glass-stat" title="Tours du bloc principal">
-                  <span class="glass-stat-icon">${ICONS.repeat}</span>
-                  <strong>${position.rounds} tours</strong>
-                </div>
-                <div class="glass-stat" title="Exercices du bloc principal">
-                  <span class="glass-stat-icon">${ICONS.dumbbell}</span>
-                  <strong>${template.main.length} exos</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="hero-footer-actions">
-              <div class="hero-level-bar">
-                <span class="hero-level-icon" title="Niveau des variantes">${ICONS.sliders}</span>
-                <div class="hero-level-segmented">
-                  ${[1, 2, 3]
-                    .map(
-                      (l) => `
-                    <button type="button" class="seg-btn ${state.fitnessLevel === l ? 'is-active' : ''}" data-action="set-level" data-level="${l}">
-                      Niv. ${l}
-                    </button>`
-                    )
-                    .join('')}
-                </div>
-              </div>
-
-              <button type="button" class="btn-hero-launch" data-action="start-workout" data-template-id="${template.id}">
-                <span class="launch-play-circle">${ICONS.play}</span>
-                <span class="launch-texts">
-                  <strong>Démarrer la séance ${template.letter}</strong>
-                </span>
-              </button>
+        <div class="feed-content">
+          <div class="feed-text">
+            <h1 class="display display-xl">${template.title}</h1>
+            <p class="lede">${template.focus}</p>
+            <div class="meta-line">
+              <span class="caps">≈ ${durationMin} min</span>
+              <span class="caps">${position.rounds} tours</span>
+              <span class="caps">${template.main.length} exercices</span>
             </div>
           </div>
+          <button type="button" class="btn btn-primary btn-block" data-action="start-workout" data-template-id="${template.id}">
+            ${ICONS.play}
+            <span>Commencer</span>
+          </button>
+          <p class="feed-hint caps">${ICONS.chevronDown} Le détail</p>
+        </div>
+      </article>
 
-          <div class="hero-circuit-panel">
-            <div class="circuit-panel-header">
-              <div class="circuit-header-title">
-                ${ICONS.dumbbell}
-                <h2>Au programme</h2>
-              </div>
-            </div>
+      ${listItem('Échauffement', template.warmup)}
+      ${mainItems}
+      ${listItem('Retour au calme', template.cooldown)}
 
-            <div class="circuit-timeline-list">
-              ${listSection('Échauffement', template.warmup)}
-              ${listSection('Bloc principal', template.main, `× ${position.rounds} tours`)}
-              ${listSection('Retour au calme', template.cooldown)}
-            </div>
-          </div>
-        </section>
-
-        <button type="button" class="bento-card mobility-card" data-action="start-workout" data-template-id="mobilite">
-          <span class="mobility-icon">${ICONS.wind}</span>
-          <span class="mobility-texts">
-            <strong>Mobilité · ~${mobilityMin} min</strong>
-            <span>Facultatif, pour les jours sans séance</span>
-          </span>
-          ${ICONS.chevronRight}
-        </button>
-
-        <article class="bento-card bento-wide-progress">
-          <div class="bento-wide-body">
-            <div class="week-strip-grid">
-              ${buildWeekStripHtml(state)}
-            </div>
-
-            <div class="bento-wide-metrics">
-              <div class="bento-mini-kpis">
-                <div class="mini-kpi" title="Séances cette semaine">
-                  <span class="kpi-icon">${ICONS.checkCircle}</span>
-                  <strong>${Math.min(doneThisWeek, position.sessionsPerWeek)}/${position.sessionsPerWeek}</strong>
-                </div>
-                <div class="mini-kpi" title="Semaines actives d’affilée">
-                  <span class="kpi-icon">${ICONS.flame}</span>
-                  <strong>${weekStreak} sem.</strong>
-                </div>
-                <div class="mini-kpi" title="Séances terminées">
-                  <span class="kpi-icon">${ICONS.trophy}</span>
-                  <strong>${state.totalWorkouts}</strong>
-                </div>
-                <div class="mini-kpi" title="Minutes cumulées">
-                  <span class="kpi-icon">${ICONS.clock}</span>
-                  <strong>${state.totalMinutes} min</strong>
-                </div>
-              </div>
-
-              <div class="xp-bar-container">
-                <div class="xp-bar-labels">
-                  <span class="xp-label-icon">${ICONS.award} Cycle ${position.cycleIndex + 1} · ${position.cycleName}</span>
-                  <strong>${position.sessionInCycle}/${position.sessionsPerCycle}</strong>
-                </div>
-                <div class="progress-track">
-                  <div class="progress-fill" style="--progress-pct: ${cyclePct}%"></div>
-                </div>
-              </div>
+      <article class="feed-item">
+        ${mediaHtml('cat-stretch', 'Dos rond, dos creux')}
+        <div class="feed-content">
+          <div class="feed-text">
+            <h2 class="display display-l">Mobilité</h2>
+            <p class="lede">Facultatif, pour les jours sans séance.</p>
+            <div class="meta-line">
+              <span class="caps">≈ ${mobilityMin} min</span>
+              <span class="caps">${mobility.main.length} mouvements</span>
             </div>
           </div>
-        </article>
-      </div>
+          <button type="button" class="btn btn-outline btn-block" data-action="start-workout" data-template-id="mobilite">
+            Lancer la mobilité
+          </button>
+        </div>
+      </article>
+
+      <article class="feed-item is-plain" id="feed-progress">
+        <div class="plain-content">
+          <h2 class="display display-l">Progression</h2>
+          <div class="cycle-ticks" aria-label="${position.sessionInCycle} séances sur ${position.sessionsPerCycle} dans ce cycle">${ticks}</div>
+          <div>
+            <p class="statement">Cycle ${position.cycleIndex + 1} · <em>${position.cycleName}</em></p>
+            <p class="statement">Semaine ${position.weekIndex + 1} sur ${position.weeksPerCycle}</p>
+            <p class="statement"><em>${weekStreak}</em> semaine${weekStreak > 1 ? 's' : ''} d’affilée</p>
+            <p class="statement">${state.totalWorkouts} séance${state.totalWorkouts > 1 ? 's' : ''} · ${state.totalMinutes} min</p>
+          </div>
+          <div>
+            <p class="caps">Dernières séances</p>
+            ${historyHtml}
+          </div>
+          <p class="fine-print">Un cycle bouclé sans séance « trop dure » te fait passer au niveau suivant.</p>
+        </div>
+      </article>
     `;
+
+    container.scrollTop = savedScroll;
+    observeFeedMedia(container);
   }
 
+  /**
+   * Solo se anima la foto del elemento visible, para no gastar batería en los demás.
+   */
+  function observeFeedMedia(container) {
+    if (feedObserver) feedObserver.disconnect();
+    if (!('IntersectionObserver' in window)) return;
+    feedObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const flip = entry.target.querySelector('.photo-flip');
+          if (flip) flip.classList.toggle('is-animated', entry.isIntersecting);
+        });
+      },
+      { root: container, threshold: 0.6 }
+    );
+    container.querySelectorAll('.feed-item').forEach((item) => feedObserver.observe(item));
+  }
+
+  /* ---------------------------------------------------------------------
+     Exercices
+     --------------------------------------------------------------------- */
   function renderExercisesView() {
     const container = document.getElementById('view-exercises');
     if (!container) return;
 
-    const D = window.AppData;
-    const ICONS = D.ICONS;
-    const categories = [{ id: 'all', label: 'Tous', icon: ICONS.grid }].concat(
-      Object.keys(D.CATEGORY_LABELS).map((id) => ({
-        id,
-        label: D.CATEGORY_LABELS[id],
-        icon: D.CATEGORY_ICONS[id]
-      }))
+    const data = D();
+    const categories = [{ id: 'all', label: 'Tous' }].concat(
+      Object.keys(data.CATEGORY_LABELS).map((id) => ({ id, label: data.CATEGORY_LABELS[id] }))
     );
 
-    const filterBtnsHtml = categories
+    const chips = categories
       .map(
         (cat) => `
-        <button
-          type="button"
-          class="filter-tab ${currentExerciseFilter === cat.id ? 'is-active' : ''}"
-          data-action="filter-exercises"
-          data-category="${cat.id}"
-        >
-          ${cat.icon}
-          <span>${cat.label}</span>
-        </button>
-      `
+        <button type="button" class="filter-chip ${currentExerciseFilter === cat.id ? 'is-active' : ''}" data-action="filter-exercises" data-category="${cat.id}" aria-pressed="${currentExerciseFilter === cat.id}">
+          ${cat.label}
+        </button>`
       )
       .join('');
 
-    const filteredExercises =
+    const list =
       currentExerciseFilter === 'all'
-        ? D.EXERCISES
-        : D.EXERCISES.filter((ex) => ex.category === currentExerciseFilter);
+        ? data.EXERCISES
+        : data.EXERCISES.filter((ex) => ex.category === currentExerciseFilter);
 
-    const cardsHtml = filteredExercises
+    const tiles = list
       .map((ex) => {
-        const lv = D.getExerciseLevel(ex, 1);
+        const lv = data.getExerciseLevel(ex, 1);
         const levelCount = Object.keys(ex.levels).length;
         return `
-        <article class="exercise-card" data-action="open-exercise-modal" data-exercise-id="${ex.id}" role="button" tabindex="0">
-          <div class="exercise-visual-box">
-            <img class="exercise-card-photo" src="assets/photos/${lv.photo}/1.jpg" alt="" loading="lazy" decoding="async" />
-            <span class="exercise-cat-tag">${D.CATEGORY_ICONS[ex.category]} ${D.CATEGORY_LABELS[ex.category]}</span>
-            ${levelCount > 1 ? `<span class="exercise-target-floating">${ICONS.sliders} ${levelCount} niveaux</span>` : ''}
-          </div>
-          <div class="exercise-card-body">
-            <h3 class="exercise-card-title">${ex.name}</h3>
-            <p class="exercise-muscles">${ex.muscles}</p>
-          </div>
-        </article>
-      `;
+          <button type="button" class="tile" data-action="open-exercise-modal" data-exercise-id="${ex.id}">
+            <img src="assets/photos/${lv.photo}/1.jpg" alt="" decoding="async"${ex.focus ? ` style="object-position: ${ex.focus}"` : ''} />
+            <span class="tile-text">
+              <span class="tile-name">${ex.name}</span>
+              <span class="caps">${data.CATEGORY_LABELS[ex.category]}${levelCount > 1 ? ` · ${levelCount} niveaux` : ''}</span>
+            </span>
+          </button>
+        `;
       })
       .join('');
 
     container.innerHTML = `
-      <div class="catalogue-container">
-        <div class="filter-tabs-bar" role="tablist">
-          ${filterBtnsHtml}
-        </div>
-
-        <div class="exercises-grid">
-          ${cardsHtml}
-        </div>
+      <div class="library-head">
+        <h1 class="display display-l">Exercices</h1>
+        <div class="filter-row" role="group" aria-label="Filtrer par catégorie">${chips}</div>
       </div>
+      <div class="tile-grid">${tiles}</div>
     `;
   }
 
-  function computeRingOffset(step) {
-    const ratio = Math.max(0, step.remainingSeconds / Math.max(1, step.targetValue));
-    return RING_CIRCUMFERENCE * (1 - ratio);
+  /* ---------------------------------------------------------------------
+     Fiche d’exercice
+     --------------------------------------------------------------------- */
+  function openExerciseDetailModal(exerciseId) {
+    const sheet = document.getElementById('exercise-detail-modal');
+    if (!sheet) return;
+    const data = D();
+    const ICONS = data.ICONS;
+    const state = window.AppStorage.getState();
+    const ex = data.getExerciseById(exerciseId);
+    const session = window.WorkoutEngine.getActiveSession();
+    const sessionStep = session && session.steps[session.currentStepIndex];
+    const activeLevel =
+      sessionStep && sessionStep.exercise && sessionStep.exercise.id === ex.id
+        ? sessionStep.selectedVariantLevel
+        : state.fitnessLevel;
+    const lv = data.getExerciseLevel(ex, activeLevel);
+    const levelKeys = Object.keys(ex.levels).map(Number);
+    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${lv.label} ${ex.name} exercice`)}`;
+
+    sheet.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+        <div class="sheet-media">
+          ${data.getExerciseMedia(lv.photo, `${ex.name} : ${lv.label}`, 'is-animated')}
+          <button type="button" class="icon-btn sheet-close" data-action="close-exercise-modal" aria-label="Fermer">
+            ${ICONS.close}
+          </button>
+        </div>
+        <div class="sheet-body">
+          <div class="sheet-title">
+            <h2 id="sheet-title" class="display display-l">${ex.name}</h2>
+            <p class="caps">${ex.muscles}</p>
+          </div>
+          <ol class="cue-list">
+            ${ex.cues.map((c) => `<li>${c}</li>`).join('')}
+          </ol>
+          ${
+            levelKeys.length > 1
+              ? `<ul class="level-list">
+                  ${levelKeys
+                    .map((l) => `<li class="${l === lv.level ? 'is-current' : ''}"><span class="caps">Niv. ${l}</span><span>${ex.levels[l].label}</span></li>`)
+                    .join('')}
+                </ul>`
+              : ''
+          }
+          <a class="btn btn-outline btn-block" href="${ytUrl}" target="_blank" rel="noopener noreferrer">
+            ${ICONS.externalLink}
+            <span>Voir une vidéo</span>
+          </a>
+        </div>
+      </div>
+    `;
+    sheet.classList.remove('is-hidden');
+    sheet.setAttribute('aria-hidden', 'false');
+    sheet.scrollTop = 0;
+    const closeBtn = sheet.querySelector('.sheet-close');
+    if (closeBtn) closeBtn.focus({ preventScroll: true });
   }
 
-  /**
-   * Se identifica la estructura visible del reproductor: mientras no cambie, cada tic del
-   * cronómetro solo actualiza los números y el anillo en lugar de reconstruir todo el DOM
-   * (evita reiniciar las animaciones y perder toques en botones que desaparecen bajo el dedo).
-   */
+  function closeExerciseModal() {
+    const sheet = document.getElementById('exercise-detail-modal');
+    if (!sheet || sheet.classList.contains('is-hidden')) return false;
+    sheet.classList.add('is-hidden');
+    sheet.setAttribute('aria-hidden', 'true');
+    sheet.innerHTML = '';
+    return true;
+  }
+
+  /* ---------------------------------------------------------------------
+     Lecteur de séance
+     --------------------------------------------------------------------- */
   function getOverlayKey(session) {
     const step = session.steps[session.currentStepIndex];
     return [
@@ -353,65 +389,228 @@ window.AppController = (function createAppController() {
       session.currentStepIndex,
       step.phase,
       step.selectedVariantLevel,
-      step.targetValue
+      step.targetValue,
+      window.AppStorage.getState().soundMuted
     ].join('|');
   }
 
+  function stepRatio(step) {
+    return Math.max(0, step.remainingSeconds / Math.max(1, step.targetValue));
+  }
+
+  /**
+   * Cada segundo solo cambian el número y la barra: no se reconstruye el DOM.
+   */
   function patchLiveTimer(overlay, session) {
     const step = session.steps[session.currentStepIndex];
     const remainingEl = overlay.querySelector('[data-live="remaining"]');
-    if (remainingEl && remainingEl.firstChild) {
-      remainingEl.firstChild.nodeValue = String(step.remainingSeconds);
-    }
+    if (remainingEl) remainingEl.textContent = String(step.remainingSeconds);
     const prepEl = overlay.querySelector('[data-live="prep"]');
     if (prepEl) prepEl.textContent = String(step.prepSeconds);
-    const ringEl = overlay.querySelector('[data-live="ring"]');
-    if (ringEl) ringEl.setAttribute('stroke-dashoffset', String(computeRingOffset(step)));
+    const ratioEl = overlay.querySelector('[data-live="ratio"]');
+    if (ratioEl) ratioEl.style.setProperty('--ratio', String(stepRatio(step)));
   }
 
-  function renderVictory(overlay, session) {
-    const ICONS = window.AppData.ICONS;
+  function renderVictory(session) {
+    const ICONS = D().ICONS;
     const actualMin = window.WorkoutEngine.getActiveMinutes(session);
-    const isProgram = session.counted;
 
-    overlay.innerHTML = `
-      <div class="player-modal player-victory">
-        <div class="victory-icon-badge">${ICONS.check}</div>
-        <h2 class="victory-title">${isProgram ? `Séance ${session.template.letter} terminée` : 'Mobilité terminée'}</h2>
-
-        <div class="victory-kpi-pills">
-          <span class="v-pill">${ICONS.clock} ${actualMin} min</span>
-          ${isProgram ? `<span class="v-pill">${ICONS.repeat} ${session.position.rounds} tours</span>` : ''}
+    if (!session.counted) {
+      return `
+        <div class="victory">
+          <div class="victory-title">
+            <h2 class="display display-xl">Mobilité <span>faite</span></h2>
+            <p class="caps">${actualMin} min</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" data-action="finish-workout" data-rpe="optimal">
+            ${ICONS.check}
+            <span>Terminer</span>
+          </button>
         </div>
+      `;
+    }
 
-        ${
-          isProgram
-            ? `
-          <div class="rpe-feedback-box">
-            <p class="rpe-question">Comment c’était ?</p>
-            <div class="rpe-buttons">
-              <button type="button" class="btn btn-secondary" data-action="finish-workout" data-rpe="easy">
-                ${ICONS.trendingUp}
-                <span>Trop facile</span>
-              </button>
-              <button type="button" class="btn btn-primary" data-action="finish-workout" data-rpe="optimal">
-                ${ICONS.check}
-                <span>Juste bien</span>
-              </button>
-              <button type="button" class="btn btn-secondary" data-action="finish-workout" data-rpe="hard">
-                ${ICONS.trendingDown}
-                <span>Trop dur</span>
-              </button>
-            </div>
-          </div>`
-            : `
-          <div class="rpe-feedback-box">
-            <button type="button" class="btn btn-primary" data-action="finish-workout" data-rpe="optimal">
-              ${ICONS.check}
-              <span>Terminer</span>
-            </button>
-          </div>`
-        }
+    return `
+      <div class="victory">
+        <div class="victory-title">
+          <h2 class="display display-xl">Séance ${session.template.letter} <span>terminée</span></h2>
+          <p class="caps">${actualMin} min · ${session.position.rounds} tours</p>
+        </div>
+        <div class="rpe">
+          <p class="caps">Comment c’était ?</p>
+          <button type="button" class="btn btn-outline btn-block" data-action="finish-workout" data-rpe="easy">Trop facile</button>
+          <button type="button" class="btn btn-primary btn-block" data-action="finish-workout" data-rpe="optimal">Juste bien</button>
+          <button type="button" class="btn btn-outline btn-block" data-action="finish-workout" data-rpe="hard">Trop dur</button>
+          <p class="fine-print">Ta réponse ajuste le volume des prochaines séances.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function playerTopHtml(session, step) {
+    const ICONS = D().ICONS;
+    const workSteps = session.steps.filter((s) => s.stepType === 'work');
+    const doneCount = session.steps
+      .slice(0, session.currentStepIndex)
+      .filter((s) => s.stepType === 'work').length;
+    const currentIsWork = step.stepType === 'work';
+    const segs = workSteps
+      .map((s, i) => {
+        const cls = i < doneCount ? 'is-done' : i === doneCount && currentIsWork ? 'is-current' : '';
+        return `<span class="seg ${cls}"></span>`;
+      })
+      .join('');
+
+    return `
+      <div class="player-top">
+        <div class="segments" aria-hidden="true">${segs}</div>
+        <div class="player-top-row">
+          <span class="caps">${sectionLabel(step)} · ${step.exerciseIndex}/${step.totalExercises}</span>
+          <button type="button" class="icon-btn" data-action="abort-workout" aria-label="Quitter la séance">${ICONS.close}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRestStage(session, step, state) {
+    const data = D();
+    const ICONS = data.ICONS;
+    const nextEx = step.nextExercise;
+    const nextLv = step.nextLevel;
+    const nextTarget = data.computeTarget(nextEx, nextLv.level, session.ctx.volumeFactor, session.ctx.intensityMultiplier);
+
+    return `
+      ${mediaHtml(nextLv.photo, `${nextEx.name} : ${nextLv.label}`, { dim: true, animated: true })}
+      ${playerTopHtml(session, step)}
+      <div class="player-bottom">
+        <div class="player-text">
+          <div class="count">
+            <span class="count-num" data-live="remaining">${step.remainingSeconds}</span>
+            <span class="count-unit">s</span>
+          </div>
+        </div>
+        <div class="count-track"><div class="count-fill" data-live="ratio" style="--ratio: ${stepRatio(step)}"></div></div>
+        <div class="next-up">
+          <h2 class="display display-m">${nextEx.name}</h2>
+          <p class="caps">${nextLv.label} · ${data.formatTarget(nextTarget, nextLv)}</p>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-outline" data-action="add-rest-time">+15 s</button>
+          <button type="button" class="btn btn-primary" data-action="skip-step">
+            ${ICONS.skipForward}
+            <span>Passer</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderWorkStage(session, step, state) {
+    const data = D();
+    const ICONS = data.ICONS;
+    const ex = step.exercise;
+    const lv = step.levelInfo;
+    const isTimer = step.mode === 'timer';
+    const hasLevels = Object.keys(ex.levels).length > 1;
+    const running = isTimer && (step.phase === 'active' || step.phase === 'paused');
+
+    let countHtml = '';
+    let actionHtml = '';
+
+    if (step.phase === 'countdown') {
+      countHtml = `
+        <div class="count">
+          <span class="count-num" data-live="prep">${step.prepSeconds}</span>
+        </div>
+        <p class="caps count-note">En place</p>
+      `;
+      actionHtml = `
+        <button type="button" class="btn btn-outline btn-block" data-action="toggle-pause">
+          ${ICONS.pause}
+          <span>Pause</span>
+        </button>
+      `;
+    } else if (isTimer && step.phase === 'ready') {
+      countHtml = `
+        <div class="count">
+          <span class="count-num">${step.targetValue}</span>
+          <span class="count-unit">s</span>
+        </div>
+      `;
+      actionHtml = `
+        <div class="btn-row">
+          <button type="button" class="btn btn-outline" data-action="skip-step">Passer</button>
+          <button type="button" class="btn btn-primary" data-action="begin-exercise-timer">
+            ${ICONS.play}
+            <span>Go</span>
+          </button>
+        </div>
+      `;
+    } else if (running) {
+      countHtml = `
+        <div class="count">
+          <span class="count-num" data-live="remaining">${step.remainingSeconds}</span>
+          <span class="count-unit">s</span>
+        </div>
+        <div class="count-track"><div class="count-fill" data-live="ratio" style="--ratio: ${stepRatio(step)}"></div></div>
+      `;
+      actionHtml = `
+        <button type="button" class="btn btn-primary btn-block" data-action="skip-step">
+          ${ICONS.check}
+          <span>Suivant</span>
+        </button>
+      `;
+    } else {
+      countHtml = `
+        <div class="count">
+          <span class="count-num">${step.targetValue}</span>
+          <span class="count-unit">rép.</span>
+        </div>
+        ${lv.perSide ? '<p class="caps count-note">Par côté</p>' : ''}
+      `;
+      actionHtml = `
+        <button type="button" class="btn btn-primary btn-block" data-action="skip-step">
+          ${ICONS.check}
+          <span>C’est fait</span>
+        </button>
+      `;
+    }
+
+    const railButtons = [
+      running
+        ? `<button type="button" class="rail-btn" data-action="toggle-pause" aria-pressed="${step.phase === 'paused'}" aria-label="${step.phase === 'paused' ? 'Reprendre' : 'Pause'}">
+            ${step.phase === 'paused' ? ICONS.play : ICONS.pause}
+            <span>${step.phase === 'paused' ? 'Reprendre' : 'Pause'}</span>
+          </button>
+          <button type="button" class="rail-btn" data-action="add-rest-time" aria-label="Ajouter 15 secondes">
+            ${ICONS.plus}
+            <span>15 s</span>
+          </button>`
+        : '',
+      hasLevels
+        ? `<button type="button" class="rail-btn" data-action="cycle-step-variant" aria-label="Changer de variante (niveau ${step.selectedVariantLevel})">
+            ${ICONS.sliders}
+            <span>Niv. ${step.selectedVariantLevel}</span>
+          </button>`
+        : '',
+      `<button type="button" class="rail-btn" data-action="open-exercise-modal" data-exercise-id="${ex.id}" aria-label="Consignes">
+        ${ICONS.info}
+        <span>Infos</span>
+      </button>`,
+      soundRailButton(state)
+    ].join('');
+
+    return `
+      ${mediaHtml(lv.photo, `${ex.name} : ${lv.label}`, { animated: true })}
+      ${playerTopHtml(session, step)}
+      <div class="rail">${railButtons}</div>
+      <div class="player-bottom">
+        <div class="player-text">
+          <h2 class="display display-m">${ex.name}</h2>
+          <p class="caps">${lv.label}</p>
+        </div>
+        ${countHtml}
+        ${actionHtml}
       </div>
     `;
   }
@@ -422,8 +621,10 @@ window.AppController = (function createAppController() {
 
     if (!session) {
       lastOverlayKey = null;
+      lastStepIndex = -1;
       overlay.classList.add('is-hidden');
       overlay.setAttribute('aria-hidden', 'true');
+      overlay.innerHTML = '';
       return;
     }
 
@@ -434,326 +635,51 @@ window.AppController = (function createAppController() {
     }
     lastOverlayKey = overlayKey;
 
-    const D = window.AppData;
-    const ICONS = D.ICONS;
-
     overlay.classList.remove('is-hidden');
     overlay.setAttribute('aria-hidden', 'false');
 
     if (session.status === 'completed') {
-      renderVictory(overlay, session);
+      overlay.innerHTML = renderVictory(session);
+      lastStepIndex = -1;
       return;
     }
 
-    const currentStep = session.steps[session.currentStepIndex];
-    const sessionPct = Math.round(((session.currentStepIndex + 1) / session.steps.length) * 100);
-    const counterHtml = `${sectionLabel(currentStep)} · ${currentStep.exerciseIndex}/${currentStep.totalExercises}`;
-
-    if (currentStep.stepType === 'rest') {
-      const nextEx = currentStep.nextExercise;
-      const nextLv = currentStep.nextLevel;
-      const nextTarget = D.computeTarget(nextEx, nextLv.level, session.ctx.volumeFactor, session.ctx.intensityMultiplier);
-      overlay.innerHTML = `
-        <div class="player-modal player-studio">
-          <div class="player-session-progress" aria-hidden="true">
-            <div class="player-session-fill" style="--progress-pct: ${sessionPct}%"></div>
-          </div>
-
-          <div class="player-topbar">
-            <div class="player-top-left">
-              <span class="player-step-counter">${counterHtml}</span>
-            </div>
-            <button type="button" class="icon-btn" data-action="abort-workout" aria-label="Quitter">
-              ${ICONS.close}
-            </button>
-          </div>
-
-          <div class="rest-split-grid">
-            <div class="rest-timer-panel">
-              <span class="rest-badge">${ICONS.wind} ${currentStep.label}</span>
-              <div class="timer-display-giant" data-live="remaining">${currentStep.remainingSeconds}<span>s</span></div>
-              <div class="rest-controls">
-                <button type="button" class="btn btn-secondary" data-action="add-rest-time">
-                  +15s
-                </button>
-                <button type="button" class="btn btn-primary" data-action="skip-step">
-                  ${ICONS.skipForward}
-                  <span>Suivant</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="rest-next-card">
-              <span class="next-label">${ICONS.chevronRight} Ensuite · ${D.formatTarget(nextTarget, nextLv)}</span>
-              <h3>${nextEx.name}</h3>
-              <p class="rest-next-variant">${nextLv.label}</p>
-              <div class="rest-next-gif">
-                ${D.getExerciseMedia(nextLv.photo, nextEx.name, 'is-animated')}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    const ex = currentStep.exercise;
-    const lv = currentStep.levelInfo;
-    const isTimer = currentStep.mode === 'timer';
-    const levelKeys = Object.keys(ex.levels).map(Number);
-    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${lv.label} ${ex.name} exercice`)}`;
-    const perSideHtml = lv.perSide ? '<div class="ring-unit-label">par côté</div>' : '';
-
-    const radius = RING_RADIUS;
-    const circumference = RING_CIRCUMFERENCE;
-    const dashOffset = isTimer ? computeRingOffset(currentStep) : 0;
-
-    let rightControlPanelHtml = '';
-
-    if (currentStep.phase === 'countdown') {
-      rightControlPanelHtml = `
-        <div class="studio-action-panel is-prep-countdown">
-          <div class="action-ring-row">
-            <div class="ring-timer-wrap">
-              <div class="countdown-big-number" data-live="prep">${currentStep.prepSeconds}</div>
-            </div>
-          </div>
-          <div class="action-cta-dock">
-            <button type="button" class="btn btn-secondary" data-action="toggle-pause">
-              ${ICONS.pause}
-              <span>Pause</span>
-            </button>
-          </div>
-        </div>
-      `;
-    } else if (isTimer && currentStep.phase === 'ready') {
-      rightControlPanelHtml = `
-        <div class="studio-action-panel is-ready-phase">
-          <div class="action-ring-row">
-            <div class="ring-timer-wrap">
-              <svg class="timer-ring-svg" viewBox="0 0 190 190">
-                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
-              </svg>
-              <div class="ring-center-content">
-                <div class="timer-display-giant">${currentStep.targetValue}<span>s</span></div>
-              </div>
-            </div>
-
-            <div class="ready-side-actions">
-              <button type="button" class="btn btn-ghost btn-sm" data-action="skip-step" title="Passer">
-                ${ICONS.skipForward}
-                <span>Passer</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="action-cta-dock">
-            <button type="button" class="btn-start-giant" data-action="begin-exercise-timer">
-              ${ICONS.play}
-              <span>Go · ${currentStep.targetValue} s</span>
-            </button>
-          </div>
-        </div>
-      `;
-    } else if (isTimer) {
-      rightControlPanelHtml = `
-        <div class="studio-action-panel is-active-phase">
-          <div class="action-ring-row">
-            <div class="ring-timer-wrap">
-              <svg class="timer-ring-svg" viewBox="0 0 190 190">
-                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-                <circle class="ring-fg" data-live="ring" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
-              </svg>
-              <div class="ring-center-content">
-                <div class="timer-display-giant" data-live="remaining">${currentStep.remainingSeconds}<span>s</span></div>
-              </div>
-            </div>
-
-            <div class="live-timer-buttons">
-              <button type="button" class="btn btn-secondary btn-icon-only" data-action="toggle-pause" aria-label="${currentStep.phase === 'paused' ? 'Reprendre' : 'Pause'}">
-                ${currentStep.phase === 'paused' ? ICONS.play : ICONS.pause}
-              </button>
-              <button type="button" class="btn btn-secondary" data-action="add-rest-time">
-                +15s
-              </button>
-              <button type="button" class="btn btn-ghost btn-icon-only" data-action="restart-exercise-timer" aria-label="Recommencer">
-                ${ICONS.rotateCcw}
-              </button>
-            </div>
-          </div>
-
-          <div class="action-cta-dock">
-            <button type="button" class="btn-start-giant" data-action="skip-step">
-              ${ICONS.check}
-              <span>Suivant</span>
-            </button>
-          </div>
-        </div>
-      `;
-    } else {
-      rightControlPanelHtml = `
-        <div class="studio-action-panel is-reps-phase">
-          <div class="action-ring-row">
-            <div class="ring-timer-wrap">
-              <svg class="timer-ring-svg" viewBox="0 0 190 190">
-                <circle class="ring-bg" cx="95" cy="95" r="${radius}" />
-                <circle class="ring-fg" cx="95" cy="95" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="0" />
-              </svg>
-              <div class="ring-center-content">
-                <div class="timer-display-giant">${currentStep.targetValue}<span>×</span></div>
-                ${perSideHtml}
-              </div>
-            </div>
-          </div>
-
-          <div class="action-cta-dock">
-            <button type="button" class="btn-start-giant" data-action="skip-step">
-              ${ICONS.check}
-              <span>C’est fait</span>
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    const variantHtml =
-      levelKeys.length > 1
-        ? `
-        <div class="studio-variant-box">
-          <div class="variant-pills-row">
-            ${levelKeys
-              .map(
-                (l) => `<button type="button" class="level-chip ${currentStep.selectedVariantLevel === l ? 'is-active' : ''}" data-action="set-step-variant" data-variant="${l}">Niv. ${l}</button>`
-              )
-              .join('')}
-          </div>
-          <p class="variant-selected-text">${lv.label}</p>
-        </div>`
-        : '';
-
-    overlay.innerHTML = `
-      <div class="player-modal player-studio">
-        <div class="player-session-progress" aria-hidden="true">
-          <div class="player-session-fill" style="--progress-pct: ${sessionPct}%"></div>
-        </div>
-
-        <div class="player-topbar">
-          <div class="player-top-left">
-            <span class="player-step-counter">${counterHtml}</span>
-          </div>
-          <div class="player-top-actions">
-            ${
-              session.currentStepIndex > 0
-                ? `<button type="button" class="icon-btn" data-action="prev-step" aria-label="Précédent">${ICONS.chevronLeft}</button>`
-                : ''
-            }
-            <button type="button" class="icon-btn" data-action="open-exercise-modal" data-exercise-id="${ex.id}" aria-label="Consignes">
-              ${ICONS.info}
-            </button>
-            <button type="button" class="icon-btn" data-action="abort-workout" aria-label="Quitter">
-              ${ICONS.close}
-            </button>
-          </div>
-        </div>
-
-        <div class="studio-main-grid">
-          <div class="studio-visual-column">
-            <div class="studio-title-block">
-              <span class="mode-badge">${D.CATEGORY_ICONS[ex.category]} ${ex.muscles}</span>
-              <h2 class="player-ex-title">${ex.name}</h2>
-            </div>
-
-            <div class="player-gif-stage">
-              ${D.getExerciseMedia(lv.photo, `${ex.name} : ${lv.label}`, 'is-animated')}
-              <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="gif-yt-pill" title="Vidéo YouTube" aria-label="Vidéo YouTube">
-                ${ICONS.play}
-              </a>
-            </div>
-
-            ${variantHtml}
-          </div>
-
-          ${rightControlPanelHtml}
-        </div>
-      </div>
-    `;
-  }
-
-  function openExerciseDetailModal(exerciseId) {
-    const modal = document.getElementById('exercise-detail-modal');
-    if (!modal) return;
-    const D = window.AppData;
-    const ICONS = D.ICONS;
     const state = window.AppStorage.getState();
-    const ex = D.getExerciseById(exerciseId);
-    const lv = D.getExerciseLevel(ex, state.fitnessLevel);
-    const cuesHtml = ex.cues
-      .map((c, i) => `<li><span class="cue-num">${i + 1}</span><span>${c}</span></li>`)
-      .join('');
-    const levelKeys = Object.keys(ex.levels).map(Number);
-    const levelsHtml =
-      levelKeys.length > 1
-        ? `<div class="modal-progressions">
-            ${levelKeys
-              .map((l) => `<div class="prog-item ${l === lv.level ? 'is-current' : ''}"><strong>Niv. ${l}</strong> <span>${ex.levels[l].label}</span></div>`)
-              .join('')}
-          </div>`
-        : '';
-    const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${lv.label} ${ex.name} exercice`)}`;
+    const step = session.steps[session.currentStepIndex];
+    let anim = '';
+    if (lastStepIndex !== -1 && session.currentStepIndex !== lastStepIndex) {
+      anim = session.currentStepIndex > lastStepIndex ? 'snap-in-up' : 'snap-in-down';
+    } else if (lastStepIndex === -1) {
+      anim = 'snap-in-up';
+    }
+    lastStepIndex = session.currentStepIndex;
 
-    modal.innerHTML = `
-      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-ex-title">
-        <div class="sheet-drag-handle" aria-hidden="true"></div>
-        <div class="modal-header">
-          <div>
-            <span class="mode-badge">${D.CATEGORY_ICONS[ex.category]} ${ex.muscles}</span>
-            <h2 id="modal-ex-title" class="modal-title">${ex.name}</h2>
-          </div>
-          <button type="button" class="icon-btn" data-action="close-exercise-modal" aria-label="Fermer">
-            ${ICONS.close}
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="player-gif-stage">
-            ${D.getExerciseMedia(lv.photo, `${ex.name} : ${lv.label}`, 'is-animated')}
-            <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="gif-yt-pill" title="YouTube">
-              ${ICONS.play}
-            </a>
-          </div>
-          <ul class="studio-cues-list">
-            ${cuesHtml}
-          </ul>
-          ${levelsHtml}
-        </div>
-      </div>
-    `;
-    modal.classList.remove('is-hidden');
+    const body = step.stepType === 'rest' ? renderRestStage(session, step, state) : renderWorkStage(session, step, state);
+    overlay.innerHTML = `<div class="stage ${anim}">${body}</div>`;
   }
 
-  function closeExerciseModal() {
-    const modal = document.getElementById('exercise-detail-modal');
-    if (modal) modal.classList.add('is-hidden');
-  }
-
+  /* ---------------------------------------------------------------------
+     Divers
+     --------------------------------------------------------------------- */
+  let toastTimer = null;
   function showToast(message) {
     const toast = document.getElementById('app-toast');
     if (!toast) return;
-    toast.innerHTML = `${window.AppData.ICONS.checkCircle} <span>${message}</span>`;
+    toast.textContent = message;
     toast.classList.add('is-visible');
-    setTimeout(() => {
-      toast.classList.remove('is-visible');
-    }, 2600);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
   }
 
   function renderAll() {
     const state = window.AppStorage.getState();
-    applyThemeAndAudioState(state);
+    applyAudioState(state);
 
-    document.querySelectorAll('.nav-btn').forEach((btn) => {
+    document.querySelectorAll('.tab-btn[data-view]').forEach((btn) => {
       const target = btn.getAttribute('data-view');
       btn.classList.toggle('is-active', target === currentView);
-      btn.setAttribute('aria-current', target === currentView ? 'page' : 'false');
+      if (target === currentView) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
     });
 
     document.querySelectorAll('.app-view').forEach((section) => {
@@ -776,60 +702,117 @@ window.AppController = (function createAppController() {
     });
     window.WorkoutEngine.abortWorkout();
     renderWorkoutOverlay(null);
+    const home = document.getElementById('view-dashboard');
+    if (home) home.scrollTop = 0;
     renderAll();
 
     if (levelUp) {
-      showToast(`Cycle bouclé · passage au niveau ${state.fitnessLevel}`);
+      showToast(`Cycle bouclé · niveau ${state.fitnessLevel}`);
     } else if (cycleCompleted) {
-      showToast('Cycle bouclé · on continue');
+      showToast('Cycle bouclé');
     } else if (session.counted) {
       const next = window.AppData.getProgramPosition(state.programSessionIndex);
-      showToast(`Séance validée · prochaine : ${window.AppData.getTemplateById(next.templateId).letter}`);
+      showToast(`Validée · prochaine : séance ${window.AppData.getTemplateById(next.templateId).letter}`);
     } else {
       showToast('Mobilité faite');
     }
   }
 
+  function abortWithConfirm() {
+    const session = window.WorkoutEngine.getActiveSession();
+    const hasProgress =
+      session && (session.currentStepIndex > 0 || session.steps[0].phase !== 'ready');
+    if (hasProgress && !window.confirm('Quitter la séance ? Elle ne sera pas validée.')) {
+      return;
+    }
+    window.WorkoutEngine.abortWorkout();
+    renderWorkoutOverlay(null);
+  }
+
+  function cycleStepVariant() {
+    const session = window.WorkoutEngine.getActiveSession();
+    if (!session) return;
+    const step = session.steps[session.currentStepIndex];
+    if (!step || step.stepType !== 'work') return;
+    const levels = Object.keys(step.exercise.levels).map(Number);
+    const idx = levels.indexOf(step.selectedVariantLevel);
+    const next = levels[(idx + 1) % levels.length];
+    window.WorkoutEngine.setCurrentStepVariant(next);
+    showToast(`Niveau ${next} · ${step.exercise.levels[next].label}`);
+  }
+
+  function isPlayerOpen() {
+    const session = window.WorkoutEngine.getActiveSession();
+    return Boolean(session && session.status !== 'completed');
+  }
+
+  /**
+   * Gesto vertical en el reproductor: hacia arriba pasa al siguiente momento, hacia abajo vuelve.
+   */
+  function bindPlayerGestures() {
+    const overlay = document.getElementById('workout-player-overlay');
+    if (!overlay) return;
+    let startY = null;
+    let startX = null;
+
+    overlay.addEventListener(
+      'touchstart',
+      (e) => {
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+      },
+      { passive: true }
+    );
+
+    overlay.addEventListener('touchend', (e) => {
+      if (startY === null || !isPlayerOpen()) return;
+      const dy = e.changedTouches[0].clientY - startY;
+      const dx = e.changedTouches[0].clientX - startX;
+      startY = null;
+      if (Math.abs(dy) < 70 || Math.abs(dy) < Math.abs(dx) * 1.5) return;
+      if (dy < 0) window.WorkoutEngine.completeCurrentStep();
+      else window.WorkoutEngine.stepPrevExercise();
+    });
+  }
+
   function bindEvents() {
     document.addEventListener('click', (event) => {
-      if (event.target.id === 'exercise-detail-modal') {
-        closeExerciseModal();
-        return;
-      }
-
       const navBtn = event.target.closest('[data-view]');
       if (navBtn) {
         window.AudioFeedback.playTap();
         currentView = navBtn.getAttribute('data-view');
         renderAll();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
       const actionBtn = event.target.closest('[data-action]');
       if (!actionBtn) return;
-
       const action = actionBtn.getAttribute('data-action');
 
-      if (action === 'set-level') {
+      if (action === 'cycle-level') {
         window.AudioFeedback.playTap();
-        const fitnessLevel = Number(actionBtn.getAttribute('data-level'));
+        const current = window.AppStorage.getState().fitnessLevel;
+        const fitnessLevel = (current % 3) + 1;
         window.AppStorage.updatePreferences({ fitnessLevel });
         renderAll();
         showToast(`Niveau ${fitnessLevel}`);
+      } else if (action === 'toggle-sound') {
+        const current = window.AppStorage.getState();
+        const state = window.AppStorage.updatePreferences({ soundMuted: !current.soundMuted });
+        applyAudioState(state);
+        if (currentView === 'dashboard') renderDashboardView(state);
+        const session = window.WorkoutEngine.getActiveSession();
+        if (session) renderWorkoutOverlay(session);
+      } else if (action === 'scroll-to-progress') {
+        const target = document.getElementById('feed-progress');
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
       } else if (action === 'start-workout') {
         window.WorkoutEngine.startWorkout(actionBtn.getAttribute('data-template-id'));
       } else if (action === 'begin-exercise-timer') {
         window.WorkoutEngine.beginCurrentExerciseTimer();
-      } else if (action === 'restart-exercise-timer') {
+      } else if (action === 'cycle-step-variant') {
         window.AudioFeedback.playTap();
-        window.WorkoutEngine.restartCurrentExerciseTimer();
-      } else if (action === 'prev-step') {
-        window.AudioFeedback.playTap();
-        window.WorkoutEngine.stepPrevExercise();
-      } else if (action === 'set-step-variant') {
-        window.AudioFeedback.playTap();
-        window.WorkoutEngine.setCurrentStepVariant(Number(actionBtn.getAttribute('data-variant')));
+        cycleStepVariant();
       } else if (action === 'toggle-pause') {
         window.AudioFeedback.playTap();
         window.WorkoutEngine.togglePause();
@@ -839,15 +822,7 @@ window.AppController = (function createAppController() {
         window.AudioFeedback.playTap();
         window.WorkoutEngine.addRestSeconds(15);
       } else if (action === 'abort-workout') {
-        const session = window.WorkoutEngine.getActiveSession();
-        const hasProgress =
-          session &&
-          (session.currentStepIndex > 0 || session.steps[0].phase !== 'ready');
-        if (hasProgress && !window.confirm('Quitter la séance ? Elle ne sera pas validée.')) {
-          return;
-        }
-        window.WorkoutEngine.abortWorkout();
-        renderWorkoutOverlay(null);
+        abortWithConfirm();
       } else if (action === 'finish-workout') {
         finishWorkout(actionBtn.getAttribute('data-rpe'));
       } else if (action === 'filter-exercises') {
@@ -860,16 +835,21 @@ window.AppController = (function createAppController() {
       }
     });
 
-    // Se hacen accionables con teclado las tarjetas con role="button" y se cierra la ficha con Escape
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        closeExerciseModal();
+        if (closeExerciseModal()) return;
+        if (isPlayerOpen()) abortWithConfirm();
         return;
       }
-      const card = event.target.closest && event.target.closest('[role="button"][data-action]');
-      if (card && (event.key === 'Enter' || event.key === ' ')) {
+      const sheetOpen = !document.getElementById('exercise-detail-modal').classList.contains('is-hidden');
+      if (!isPlayerOpen() || sheetOpen) return;
+      if (event.target.closest && event.target.closest('button, a')) return;
+      if (event.key === 'ArrowDown' || event.key === 'PageDown') {
         event.preventDefault();
-        card.click();
+        window.WorkoutEngine.completeCurrentStep();
+      } else if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+        event.preventDefault();
+        window.WorkoutEngine.stepPrevExercise();
       }
     });
 
@@ -882,25 +862,7 @@ window.AppController = (function createAppController() {
       }
     });
 
-    const themeToggle = document.getElementById('btn-theme-toggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', () => {
-        const current = window.AppStorage.getState();
-        const nextTheme = current.theme === 'dark' ? 'light' : 'dark';
-        window.AppStorage.updatePreferences({ theme: nextTheme });
-        renderAll();
-      });
-    }
-
-    const soundToggle = document.getElementById('btn-sound-toggle');
-    if (soundToggle) {
-      soundToggle.addEventListener('click', () => {
-        const current = window.AppStorage.getState();
-        const nextMuted = !current.soundMuted;
-        window.AppStorage.updatePreferences({ soundMuted: nextMuted });
-        renderAll();
-      });
-    }
+    bindPlayerGestures();
   }
 
   return {

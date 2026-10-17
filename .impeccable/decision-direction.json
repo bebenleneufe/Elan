@@ -1,0 +1,238 @@
+{
+  "title": "Choisis l’univers visuel d’Élan",
+  "question": "Le tirage a désigné « Cahier Seyès ». Garde-le, prends une alternative, ou relance.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Cahier Seyès",
+      "kicker": "THE ROLL",
+      "lineage": "Cahier d’écolier français : grille Seyès violette, marge rouge, encre bleue ; ardoise en mode sombre",
+      "thesis": "Ta reprise s’écrit comme un cahier : chaque séance est une ligne remplie à l’encre, et le chrono s’écrit en chiffres géants lisibles depuis le tapis.",
+      "palette": [
+        "#fafbfd",
+        "#9d94de",
+        "#d8352a",
+        "#1b2a6b",
+        "#26332d"
+      ],
+      "materials": [
+        "papier blanc quadrillé Seyès",
+        "encre bleu-noir",
+        "marge rouge",
+        "ardoise et craie (sombre)"
+      ],
+      "viewport": "Accueil = une page : la marge rouge porte les 4 séances de la semaine, le titre de la séance est écrit en grand sur les lignes, les exercices suivent ligne à ligne, et « Commencer » est un pavé d’encre plein. En séance : photo plein cadre en haut, chiffre géant à l’encre sur la grille.",
+      "risk": "Peut faire scolaire si l’écriture manuscrite est trop présente : le chrono et les titres restent typographiques, le manuscrit est réservé aux annotations.",
+      "raised": [
+        {
+          "from": "challenger-emission-rail",
+          "raise": "Les états passent par le trait, pas la couleur : crayon pointillé = prévu, encre pleine = fait, barré = sauté."
+        },
+        {
+          "from": "challenger-timetable",
+          "raise": "Une seule plaque inversée par écran : l’action en cours, en pavé d’encre plein."
+        },
+        {
+          "from": "challenger-console",
+          "raise": "« Quitter » vit seul dans la marge, loin de « Suivant », impossible à toucher par erreur."
+        },
+        {
+          "from": "challenger-centre-rail",
+          "raise": "La grille Seyès est dessinée au pixel près et cale réellement la ligne de base du texte."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.png"
+    },
+    {
+      "id": "model-pick",
+      "label": "Quai de gare",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Horloge de quai SNCF/SBB et tableau des départs",
+      "thesis": "Chaque séance est un départ : une horloge de quai géante pour le chrono, un tableau d’affichage pour les exercices.",
+      "palette": [
+        "#0b1f3a",
+        "#ffffff",
+        "#ffd400",
+        "#e30613"
+      ],
+      "materials": [
+        "cadran d’horloge",
+        "tableau à lamelles",
+        "signalétique émaillée"
+      ],
+      "viewport": "Accueil = tableau des départs : prochaine séance en tête, voies A–D, heure de départ estimée. En séance : cadran géant à trotteuse rouge, le prochain exercice affiché comme le prochain train.",
+      "risk": "La direction la plus familière : beaucoup d’apps de chrono sportif lorgnent déjà l’affichage de gare.",
+      "comp": ".impeccable/mocks/decision/model-pick.png"
+    },
+    {
+      "id": "challenger-vertical-feed",
+      "label": "Flux plein écran",
+      "verdict": "competitive",
+      "lineage": "Flux vidéo vertical (un élément = tout l’écran)",
+      "thesis": "Un exercice occupe tout l’écran, les commandes empilées à droite, le suivant à un geste.",
+      "palette": [
+        "#000000",
+        "#ffffff",
+        "#ff5a36"
+      ],
+      "materials": [
+        "photo plein cadre",
+        "voile sombre en bas",
+        "glyphes blancs"
+      ],
+      "viewport": "Séance : la photo remplit l’écran, nom et objectif en bas à gauche, pause/+15 s/infos en colonne à droite, glisser vers le haut = suivant.",
+      "case": "Très fort pour la séance (lisible au sol, un geste), plus faible pour l’accueil et la structure du programme.",
+      "risk": "Ressemble à TikTok ; la vue programme perd sa colonne vertébrale.",
+      "comp": ".impeccable/mocks/decision/challenger-vertical-feed.png",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-vertical-video-feed-surface-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/pop-culture-shelf-vertical-video-feed-surface.webp"
+    },
+    {
+      "id": "challenger-cassette",
+      "label": "Face A / Face B",
+      "verdict": "competitive",
+      "lineage": "Jaquette de cassette compilée à la main",
+      "thesis": "Les séances A–D sont des faces de cassette, chaque exercice une piste chronométrée au stylo bille.",
+      "palette": [
+        "#f7f7f2",
+        "#2340a8",
+        "#d42a2a",
+        "#8a8a8a"
+      ],
+      "materials": [
+        "jaquette lignée",
+        "stylo bille bleu",
+        "bande de marque rouge"
+      ],
+      "viewport": "Accueil = jaquette dépliée : tranche « Cycle 1 · Reprise », face A haut / face B bas, pistes avec durées alignées à droite. En séance, un repère avance le long de la liste.",
+      "case": "Parle à des trentenaires et rend les durées lisibles ; même famille « papier écrit » que le cahier, plus nostalgique, moins lisible de loin.",
+      "risk": "Plus décoratif que fonctionnel au sol ; le manuscrit partout fatigue vite.",
+      "comp": ".impeccable/mocks/decision/challenger-cassette.png",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card.webp"
+    },
+    {
+      "id": "challenger-emission-rail",
+      "label": "Rail spectral",
+      "verdict": "declined",
+      "lineage": "Spectrogramme sur table lumineuse",
+      "thesis": "Tout s’accroche à un rail, l’état se lit à la forme du trait.",
+      "palette": [
+        "#2a2c2e",
+        "#e9e4d8",
+        "#f2b632"
+      ],
+      "materials": [
+        "continuum charbon",
+        "traits lumineux d’un pixel"
+      ],
+      "viewport": "Une plaque géante au-dessus d’un rail de séances.",
+      "risk": "Une seule petite taille de texte : illisible depuis le sol.",
+      "case": "Perd sur les deux axes : abstrait pour le public, trop fin pour une lecture à distance.",
+      "kept": "Les états portés par le trait (pointillé, plein, barré) plutôt que la couleur.",
+      "hero": "https://impeccable.style/worlds/cards/operate-c-emission-line-rail-hero.webp"
+    },
+    {
+      "id": "challenger-timetable",
+      "label": "Indicateur horaire",
+      "verdict": "declined",
+      "lineage": "Indicateur de poche de compagnie aérienne, 1971",
+      "thesis": "Une seule taille de caractère, la hiérarchie portée par la graisse et l’inversion.",
+      "palette": [
+        "#d9a521",
+        "#1c1c1c",
+        "#f4efe2",
+        "#c23b22"
+      ],
+      "materials": [
+        "verre teinté",
+        "carton doré éclairé"
+      ],
+      "viewport": "Un rack incliné de fiches horaires.",
+      "risk": "Taille unique = chrono minuscule ; l’inclinaison gêne la lecture.",
+      "case": "Perd sur les deux axes pour un usage au sol.",
+      "kept": "Une seule plaque inversée par écran pour l’action en cours.",
+      "hero": "https://impeccable.style/worlds/cards/rw-timetable-slide-rack-hero.webp"
+    },
+    {
+      "id": "challenger-console",
+      "label": "Console sombre",
+      "verdict": "declined",
+      "lineage": "Console de développeur, thème sombre",
+      "thesis": "Panneaux graphite séparés par des filets, accents de syntaxe pour l’état.",
+      "palette": [
+        "#16181d",
+        "#2b2f37",
+        "#7ee787",
+        "#ff7b72"
+      ],
+      "materials": [
+        "graphite",
+        "filets d’un pixel"
+      ],
+      "viewport": "Panneaux persistants : programme, séance, historique.",
+      "risk": "Froid et technique, tout l’inverse d’une reprise en douceur.",
+      "case": "Perd sur les deux axes : le public ne s’y reconnaît pas.",
+      "kept": "L’action destructive isolée par du vide.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-dark-first-developer-console-hero.webp"
+    },
+    {
+      "id": "challenger-centre-rail",
+      "label": "Édition à rail central",
+      "verdict": "declined",
+      "lineage": "Édition savante à grandes marges",
+      "thesis": "Deux colonnes denses autour d’un rail de repères vermillon.",
+      "palette": [
+        "#1a1a1a",
+        "#c8381e",
+        "#efe9dc"
+      ],
+      "materials": [
+        "encre de fer",
+        "papier os",
+        "filets tracés à la règle"
+      ],
+      "viewport": "Un bloc de texte serré dans une large marge annotée.",
+      "risk": "Texte petit et dense : contraire de « moins de blabla ».",
+      "case": "Perd sur les deux axes.",
+      "kept": "La précision du tracé : chaque filet au pixel, calé sur la mise en page réelle.",
+      "hero": "https://impeccable.style/worlds/cards/rw-centre-rail-reference-setting-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": [
+      "safer",
+      "bolder"
+    ]
+  },
+  "buildPath": {
+    "value": "code",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Le standard des apps fitness",
+    "thesis": "Ce que livre la catégorie, exécuté au cordeau : photos plein cadre, sans-serif grasse, fond sombre, un accent vif.",
+    "palette": [
+      "#0e0e10",
+      "#ffffff",
+      "#c6ff3d"
+    ],
+    "materials": [
+      "photo plein cadre",
+      "grille propre",
+      "cartes arrondies"
+    ],
+    "viewport": "La prochaine séance en grande carte photo, le bouton Démarrer dessous, la semaine en pastilles.",
+    "risk": "Indiscernable des concurrents par construction.",
+    "comp": ".impeccable/mocks/decision/canon.png"
+  },
+  "steer": true,
+  "seedKey": "b0d983ae",
+  "seedCommand": "impeccable concept-seed --scope direction --mode operate (approved pool c3b204a1eed6)",
+  "answer": {
+    "optionId": "challenger-vertical-feed",
+    "buildPath": "code",
+    "buildPathFlipped": false
+  }
+}
