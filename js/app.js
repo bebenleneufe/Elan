@@ -862,6 +862,7 @@ window.AppController = (function createAppController() {
   }
 
   function walkElapsedMs(walk) {
+    if (!walk.startedAt) return 0;
     const end = walk.pausedAt || Date.now();
     return Math.max(0, end - walk.startedAt - walk.pausedMs);
   }
@@ -880,6 +881,7 @@ window.AppController = (function createAppController() {
     const walk = loadWalk();
     const layer = document.getElementById('walk-layer');
     if (!walk || !layer) return;
+    if (!walk.startedAt) return; // en attente du départ : rien ne défile
     const targetMs = D().WALK_TARGET_MIN * 60000;
     const ms = walkElapsedMs(walk);
     const clock = layer.querySelector('[data-walk="clock"]');
@@ -1021,13 +1023,22 @@ window.AppController = (function createAppController() {
                  <div class="count"><span class="count-num" data-walk="clock">0:00</span></div>
                  <div class="count-track"><div class="count-fill" data-walk="ratio"></div></div>`
           }
-          <p class="fine-print">Tu peux verrouiller le téléphone : le chrono continue.</p>
+          ${
+            walk.startedAt
+              ? `<p class="fine-print">Tu peux verrouiller le téléphone : le chrono continue.</p>
           <div class="btn-row">
             <button type="button" class="btn btn-outline" data-action="walk-toggle">${walk.pausedAt ? 'Reprendre' : 'Pause'}</button>
             <button type="button" class="btn btn-primary" data-action="walk-finish">
               ${ICONS.check}
               <span>Terminer</span>
-            </button>
+            </button>`
+              : `<p class="fine-print">${window.Treadmill && window.Treadmill.isSupported() ? 'Connecte le tapis si tu l’utilises : la marche démarre avec la bande.' : 'Le chrono démarre quand tu es prêt.'}</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary btn-block" data-action="walk-begin">
+              ${ICONS.play}
+              <span>Démarrer la marche</span>
+            </button>`
+          }
           </div>
         </div>
       </div>
@@ -1039,9 +1050,24 @@ window.AppController = (function createAppController() {
   function startWalk(programId) {
     if (!loadWalk()) {
       const program = programId && programId !== 'free' ? programId : null;
-      saveWalk({ startedAt: Date.now(), pausedMs: 0, pausedAt: null, notified: false, programId: program, segIdx: -1, auto: true });
+      // La marche attend le départ (bouton ou bande du tapis) avant de lancer le chrono
+      saveWalk({ startedAt: null, pausedMs: 0, pausedAt: null, notified: false, programId: program, segIdx: -1, auto: true });
     }
     pushLayer('walk');
+    renderWalkLayer();
+  }
+
+  // Lance le chrono ; avec le tapis connecté et à l’arrêt, démarre aussi la bande
+  function beginWalk(fromBelt) {
+    const walk = loadWalk();
+    if (!walk || walk.startedAt) return;
+    walk.startedAt = Date.now();
+    saveWalk(walk);
+    window.AudioFeedback.playStartPhase();
+    const T = window.Treadmill;
+    if (!fromBelt && T && T.getState().phase === 'ready' && !T.getState().running) {
+      T.start().catch((error) => showToast(`Tapis : ${error.message}`));
+    }
     renderWalkLayer();
   }
 
@@ -1079,7 +1105,7 @@ window.AppController = (function createAppController() {
     renderWalkLayer();
     if (!fromHistory) popLayer('walk');
     if (minutes >= 1) logWalk(minutes, totals.distanceM ? totals : null);
-    else showToast('Moins d’une minute : non enregistrée');
+    else if (walk.startedAt) showToast('Moins d’une minute : non enregistrée');
   }
 
   // Fermer la marche : on propose de l’enregistrer ; renvoie true si la couche est fermée
@@ -1204,7 +1230,17 @@ window.AppController = (function createAppController() {
       // La bande démarre à sa vitesse minimale : en marche guidée, on rejoint l’allure du segment
       if (tm.running && !wasRunning) {
         const walk = loadWalk();
-        if (walk && walk.auto && walkProgramOf(walk)) setTimeout(applyWalkAutoSpeed, 2500);
+        if (walk && !walk.startedAt) beginWalk(true);
+        else if (walk && walk.pausedAt) toggleWalkPause();
+        const current = loadWalk();
+        if (current && current.auto && walkProgramOf(current)) setTimeout(applyWalkAutoSpeed, 2500);
+      } else if (!tm.running && wasRunning) {
+        // Bande arrêtée (bouton, télécommande ou sécurité) : la marche se met en pause
+        const walk = loadWalk();
+        if (walk && walk.startedAt && !walk.pausedAt) {
+          toggleWalkPause();
+          showToast('Tapis arrêté · marche en pause');
+        }
       }
       wasRunning = tm.running;
       if (!isWalkOpen()) return;
@@ -1435,9 +1471,19 @@ window.AppController = (function createAppController() {
         startWalk(actionBtn.getAttribute('data-walk-program'));
       } else if (action === 'walk-log') {
         logWalk(window.AppData.WALK_TARGET_MIN);
+      } else if (action === 'walk-begin') {
+        beginWalk(false);
       } else if (action === 'walk-toggle') {
         window.AudioFeedback.playTap();
         toggleWalkPause();
+        // Pause / reprise de la marche entraînent la bande du tapis si elle est connectée
+        const T = window.Treadmill;
+        const walkNow = loadWalk();
+        if (T && T.getState().phase === 'ready' && walkNow) {
+          const tm = T.getState();
+          if (walkNow.pausedAt && tm.running) T.pause().catch((error) => showToast(`Tapis : ${error.message}`));
+          else if (!walkNow.pausedAt && !tm.running) T.start().catch((error) => showToast(`Tapis : ${error.message}`));
+        }
       } else if (action === 'walk-finish') {
         finishWalk(false);
       } else if (action === 'walk-close') {
