@@ -117,8 +117,8 @@ window.AppStorage = (function createAppStorage() {
     }
     if (activeStreak >= 6) return { kind: 'rest', next: 'strength' };
 
-    const previous = history.find((h) => h.date < today && (isStrengthEntry(h) || isWalkEntry(h)));
-    if (previous && previous.date === yesterday && isStrengthEntry(previous)) {
+    // Una sesión ayer manda, aunque también se haya caminado ese día: los músculos necesitan ~48 h
+    if (history.some((h) => h.date === yesterday && isStrengthEntry(h))) {
       return { kind: 'walk', next: 'strength' };
     }
     return { kind: 'strength', next: 'walk' };
