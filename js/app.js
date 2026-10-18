@@ -903,6 +903,42 @@ window.AppController = (function createAppController() {
     tickWalkProgram(walk, ms, layer);
   }
 
+  /* Écran allumé pendant toute la marche (Wake Lock), comme pendant les séances */
+  let walkWakeLock = null;
+
+  async function holdWalkWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !walkWakeLock && document.visibilityState === 'visible') {
+        walkWakeLock = await navigator.wakeLock.request('screen');
+        walkWakeLock.addEventListener('release', () => {
+          walkWakeLock = null;
+        });
+      }
+    } catch (_) {
+      // Refusé (économie d’énergie…) : on n’insiste pas
+    }
+  }
+
+  function releaseWalkWakeLock() {
+    if (walkWakeLock) {
+      walkWakeLock.release().catch(() => {});
+      walkWakeLock = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && loadWalk()) holdWalkWakeLock();
+  });
+
+  function spokenKmh(kmh) {
+    return `${kmh.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} kilomètres heure`;
+  }
+
+  function beltUnderAutoControl(walk) {
+    const T = window.Treadmill;
+    return Boolean(walk && walk.auto && T && T.getState().phase === 'ready' && T.getState().running);
+  }
+
   /* Marche guidée : segments, annonces et vitesse automatique du tapis */
   function walkProgramOf(walk) {
     return walk && walk.programId ? D().getWalkProgramById(walk.programId) : null;
@@ -926,7 +962,21 @@ window.AppController = (function createAppController() {
     if (tm.phase !== 'ready' || !tm.running) return;
     const pos = D().getWalkSegmentAt(program, walkElapsedMs(walk) / 1000);
     if (pos.done) return;
-    T.setSpeed(currentWalkSpeed(pos.segment)).catch((error) => showToast(`Tapis : ${error.message}`));
+    const target = currentWalkSpeed(pos.segment);
+    if (Math.abs(target - tm.speedKmh) >= 0.05) {
+      window.AudioFeedback.playSafetyAlert(`${target > tm.speedKmh ? 'Accélération' : 'Ralentissement'} à ${spokenKmh(target)}.`);
+    }
+    T.setSpeed(target).catch((error) => showToast(`Tapis : ${error.message}`));
+  }
+
+  // Fin du programme : arrêt de la bande puis enregistrement automatique
+  function endGuidedWalk() {
+    const T = window.Treadmill;
+    if (T && T.getState().phase === 'ready' && T.getState().running) {
+      T.stop().catch(() => {});
+    }
+    window.AudioFeedback.playSafetyAlert('Marche terminée. Bravo.');
+    finishWalk(false);
   }
 
   function tickWalkProgram(walk, ms, layer) {
@@ -940,15 +990,41 @@ window.AppController = (function createAppController() {
       saveWalk(walk);
       if (!first) {
         if (pos.done) {
-          showToast('Programme terminé · continue si tu veux');
-        } else {
-          window.AudioFeedback.playStepReady();
-          showToast(`${pos.segment.label} · ${formatKmh(currentWalkSpeed(pos.segment))}`);
-          applyWalkAutoSpeed();
+          endGuidedWalk();
+          return;
         }
+        showToast(`${pos.segment.label} · ${formatKmh(currentWalkSpeed(pos.segment))}`);
+        if (beltUnderAutoControl(walk)) applyWalkAutoSpeed();
+        else window.AudioFeedback.playSafetyAlert(`${pos.segment.label}, allure ${D().PACE_LABELS[pos.segment.pace]}.`);
       }
       renderWalkLayer();
       return;
+    }
+
+    // Annonce 10 s avant chaque changement (et avant la fin), une seule fois par segment
+    if (!walk.pausedAt && !pos.done && pos.remainingS <= 10 && walk.warnedIdx !== pos.index) {
+      walk.warnedIdx = pos.index;
+      saveWalk(walk);
+      let message;
+      if (!pos.next) {
+        message = beltUnderAutoControl(walk)
+          ? 'Fin de la marche dans 10 secondes. Le tapis va s’arrêter.'
+          : 'Fin de la marche dans 10 secondes.';
+      } else {
+        const now = currentWalkSpeed(pos.segment);
+        const next = currentWalkSpeed(pos.next);
+        if (beltUnderAutoControl(walk) && Math.abs(next - now) >= 0.05) {
+          message = `Attention : ${next > now ? 'accélération' : 'ralentissement'} à ${spokenKmh(next)} dans 10 secondes.`;
+        } else {
+          message = `Dans 10 secondes : ${pos.next.label.toLowerCase()}.`;
+        }
+      }
+      window.AudioFeedback.playSafetyAlert(message);
+      const alert = layer.querySelector('[data-walk="alert"]');
+      if (alert) {
+        alert.textContent = message;
+        alert.classList.remove('is-hidden');
+      }
     }
 
     const segClock = layer.querySelector('[data-walk="seg-clock"]');
@@ -976,6 +1052,7 @@ window.AppController = (function createAppController() {
     return {
       segments: `<div class="segments walk-program-segs" aria-hidden="true">${segs}</div>`,
       body: `
+        <p class="walk-alert is-hidden" data-walk="alert" role="alert"></p>
         ${now}
         <div class="count"><span class="count-num" data-walk="seg-clock">${formatClock(pos.remainingS * 1000)}</span></div>
         ${next}
@@ -993,12 +1070,14 @@ window.AppController = (function createAppController() {
     walkTimer = null;
 
     if (!walk) {
+      releaseWalkWakeLock();
       layer.classList.add('is-hidden');
       layer.setAttribute('aria-hidden', 'true');
       layer.innerHTML = '';
       return;
     }
 
+    holdWalkWakeLock();
     const ICONS = D().ICONS;
     const program = walkProgramOf(walk);
     const guided = program ? walkProgramHtml(walk, program) : null;
@@ -1025,7 +1104,7 @@ window.AppController = (function createAppController() {
           }
           ${
             walk.startedAt
-              ? `<p class="fine-print">Tu peux verrouiller le téléphone : le chrono continue.</p>
+              ? `<p class="fine-print">L’écran reste allumé pendant la marche.</p>
           <div class="btn-row">
             <button type="button" class="btn btn-outline" data-action="walk-toggle">${walk.pausedAt ? 'Reprendre' : 'Pause'}</button>
             <button type="button" class="btn btn-primary" data-action="walk-finish">

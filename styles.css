@@ -872,8 +872,23 @@ ul {
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  /* « safe » : si le contenu dépasse, on peut défiler jusqu’en haut au lieu de le perdre */
+  justify-content: safe flex-end;
+  overflow-y: auto;
   padding-bottom: calc(var(--safe-bottom) + 20px);
+}
+
+/* Alerte de changement de vitesse, impossible à rater */
+.walk-alert {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background-color: var(--paper);
+  color: var(--void);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 .stage.snap-in-up {

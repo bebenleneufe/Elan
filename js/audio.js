@@ -124,6 +124,33 @@ window.AudioFeedback = (function createAudioFeedback() {
       return isMuted;
     },
 
+    /**
+     * Alerta de seguridad (cambio de velocidad del tapiz): suena aunque la app esté en silencio,
+     * con doble tono fuerte, vibración y aviso hablado en francés.
+     */
+    playSafetyAlert(spokenText) {
+      const wasMuted = isMuted;
+      isMuted = false;
+      try {
+        triggerHaptic([250, 120, 250]);
+        playHarmonicNote({ freq: 659.25, duration: 0.28, volume: 0.32, type: 'triangle', harmonicGain: 0.25, filterCutoff: 3200 });
+        playHarmonicNote({ freq: 987.77, duration: 0.4, delay: 0.3, volume: 0.32, type: 'triangle', harmonicGain: 0.25, filterCutoff: 3200 });
+      } finally {
+        isMuted = wasMuted;
+      }
+      if (spokenText && 'speechSynthesis' in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(spokenText);
+          utterance.lang = 'fr-FR';
+          utterance.rate = 1.05;
+          window.speechSynthesis.cancel();
+          setTimeout(() => window.speechSynthesis.speak(utterance), 750);
+        } catch (_) {
+          // Se ignora si la síntesis de voz no está disponible
+        }
+      }
+    },
+
     // Toque táctil sutil de madera/cristal al pulsar controles importantes
     playTap() {
       triggerHaptic(10);
