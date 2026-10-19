@@ -3,7 +3,7 @@
  * respaldo sin conexión) para que cualquier despliegue en GitHub Pages aparezca inmediatamente
  * en el móvil sin quedar atrapado en una versión antigua de la caché.
  */
-const SHELL_CACHE = 'elan30-shell-v13';
+const SHELL_CACHE = 'elan30-shell-v14';
 const FONT_CACHE = 'elan30-fonts-v1';
 const KNOWN_CACHES = new Set([SHELL_CACHE, FONT_CACHE]);
 

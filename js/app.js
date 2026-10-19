@@ -927,7 +927,13 @@ window.AppController = (function createAppController() {
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && loadWalk()) holdWalkWakeLock();
+    if (document.visibilityState !== 'visible' || !loadWalk()) return;
+    if (isForgottenWalk(loadWalk())) {
+      popLayer('walk');
+      settleForgottenWalk();
+      return;
+    }
+    holdWalkWakeLock();
   });
 
   function spokenKmh(kmh) {
@@ -1130,7 +1136,16 @@ window.AppController = (function createAppController() {
     if (!loadWalk()) {
       const program = programId && programId !== 'free' ? programId : null;
       // La marche attend le départ (bouton ou bande du tapis) avant de lancer le chrono
-      saveWalk({ startedAt: null, pausedMs: 0, pausedAt: null, notified: false, programId: program, segIdx: -1, auto: true });
+      saveWalk({
+        startedAt: null,
+        createdOn: window.AppStorage.getTodayDateString(),
+        pausedMs: 0,
+        pausedAt: null,
+        notified: false,
+        programId: program,
+        segIdx: -1,
+        auto: true
+      });
     }
     pushLayer('walk');
     renderWalkLayer();
@@ -1163,18 +1178,53 @@ window.AppController = (function createAppController() {
     renderWalkLayer();
   }
 
-  function logWalk(minutes, extra) {
+  function logWalk(minutes, extra, message) {
     window.AppStorage.recordWalk(minutes, extra);
     const home = document.getElementById('view-dashboard');
     if (home) home.scrollTop = 0;
     renderAll();
-    showToast(`Marche enregistrée · ${Math.max(1, Math.round(minutes))} min`);
+    showToast(message || `Marche enregistrée · ${Math.max(1, Math.round(minutes))} min`);
+  }
+
+  // Durée maximale plausible : le programme guidé (+ marge) ou 3 h pour une marche libre
+  function walkMaxMinutes(walk) {
+    const program = walkProgramOf(walk);
+    return program ? program.segments.reduce((sum, s) => sum + s.min, 0) + 15 : 180;
+  }
+
+  function walkStartDate(walk) {
+    return window.AppStorage.toDateString(new Date(walk.startedAt));
+  }
+
+  // Marche restée ouverte (oubli de « Terminer ») : commencée un autre jour ou bien trop longue
+  function isForgottenWalk(walk) {
+    if (!walk) return false;
+    if (!walk.startedAt) return walk.createdOn && walk.createdOn !== window.AppStorage.getTodayDateString();
+    return walkStartDate(walk) !== window.AppStorage.getTodayDateString() || walkElapsedMs(walk) / 60000 > walkMaxMinutes(walk);
+  }
+
+  // Enregistre une marche oubliée au jour où elle a commencé, avec une durée plafonnée
+  function settleForgottenWalk() {
+    const walk = loadWalk();
+    if (!walk) return;
+    saveWalk(null);
+    renderWalkLayer();
+    if (!walk.startedAt) return;
+    const program = walkProgramOf(walk);
+    const minutes = Math.min(walkElapsedMs(walk) / 60000, program ? walkMaxMinutes(walk) - 15 : 30);
+    const totals = walkTreadmillTotals(walk);
+    const sameDay = walkStartDate(walk) === window.AppStorage.getTodayDateString();
+    logWalk(
+      minutes,
+      Object.assign({ date: walkStartDate(walk) }, totals.distanceM ? totals : {}),
+      `Marche ${sameDay ? 'restée ouverte' : 'd’hier'} enregistrée · ${Math.round(minutes)} min`
+    );
   }
 
   function finishWalk(fromHistory) {
     const walk = loadWalk();
     if (!walk) return;
-    const minutes = walkElapsedMs(walk) / 60000;
+    const minutes = Math.min(walkElapsedMs(walk) / 60000, walkMaxMinutes(walk));
     const totals = walkTreadmillTotals(walk);
     const T = window.Treadmill;
     if (T && T.getState().phase === 'ready' && T.getState().running) {
@@ -1183,7 +1233,7 @@ window.AppController = (function createAppController() {
     saveWalk(null);
     renderWalkLayer();
     if (!fromHistory) popLayer('walk');
-    if (minutes >= 1) logWalk(minutes, totals.distanceM ? totals : null);
+    if (minutes >= 1) logWalk(minutes, Object.assign({ date: walkStartDate(walk) }, totals.distanceM ? totals : {}));
     else if (walk.startedAt) showToast('Moins d’une minute : non enregistrée');
   }
 
@@ -1452,7 +1502,9 @@ window.AppController = (function createAppController() {
     else pushLayer('guard');
     window.addEventListener('popstate', handlePopState);
     // Une marche en cours (écran rechargé, app rouverte) reprend là où elle en était
-    if (loadWalk()) {
+    if (isForgottenWalk(loadWalk())) {
+      settleForgottenWalk();
+    } else if (loadWalk()) {
       pushLayer('walk');
       renderWalkLayer();
     }

@@ -42,11 +42,39 @@ window.AppStorage = (function createAppStorage() {
         saveState(initial);
         return initial;
       }
-      return Object.assign({}, getDefaultState(), JSON.parse(raw));
+      const state = Object.assign({}, getDefaultState(), JSON.parse(raw));
+      if (repairForgottenWalks(state)) saveState(state);
+      return state;
     } catch (error) {
       window.AppLogger.error({ error: String(error) }, 'Failed to load state from localStorage');
       return getDefaultState();
     }
+  }
+
+  /**
+   * Una marcha olvidada abierta (sin pulsar «Terminer») se guardaba con la fecha del día en que
+   * se cerró y una duración de varias horas. Se devuelve al día en que empezó, limitada a 30 min.
+   */
+  const MAX_WALK_MIN = 180;
+  const FORGOTTEN_WALK_MIN = 30;
+
+  function repairForgottenWalks(state) {
+    let changed = false;
+    state.workoutHistory.forEach((h) => {
+      if (h.templateId !== 'marche' || !(h.durationMin > MAX_WALK_MIN) || !h.timestamp) return;
+      const startMs = Date.parse(h.timestamp) - h.durationMin * 60000;
+      if (Number.isNaN(startMs)) return;
+      state.totalMinutes = Math.max(0, state.totalMinutes - (h.durationMin - FORGOTTEN_WALK_MIN));
+      h.date = toDateString(new Date(startMs));
+      h.durationMin = FORGOTTEN_WALK_MIN;
+      h.repaired = true;
+      changed = true;
+    });
+    if (changed) {
+      state.workoutHistory.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      window.AppLogger.info({}, 'Forgotten walk entries repaired');
+    }
+    return changed;
   }
 
   function saveState(newState) {
@@ -148,6 +176,7 @@ window.AppStorage = (function createAppStorage() {
 
   return {
     getTodayDateString,
+    toDateString,
     getWeeklyStreak,
     countSessionsThisWeek,
     getDayPlan,
@@ -227,7 +256,7 @@ window.AppStorage = (function createAppStorage() {
       state.lastActiveDate = getTodayDateString();
       state.workoutHistory.unshift({
         id: `wk-${Date.now()}`,
-        date: getTodayDateString(),
+        date: more.date || getTodayDateString(),
         timestamp: new Date().toISOString(),
         templateId: 'marche',
         title: 'Marche',
@@ -237,6 +266,7 @@ window.AppStorage = (function createAppStorage() {
         counted: false,
         rpe: 'optimal'
       });
+      state.workoutHistory.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
       state.workoutHistory = state.workoutHistory.slice(0, HISTORY_LIMIT);
       saveState(state);
       window.AppLogger.info({ durationMin, distanceM: more.distanceM }, 'Walk recorded');
