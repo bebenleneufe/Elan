@@ -272,6 +272,26 @@ window.AppStorage = (function createAppStorage() {
       window.AppLogger.info({ durationMin, distanceM: more.distanceM }, 'Walk recorded');
       return state;
     },
+    // Corrige une marche enregistrée le mauvais jour : celles d’aujourd’hui passent à hier
+    moveTodayWalksToYesterday() {
+      const state = loadState();
+      const today = getTodayDateString();
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      const yesterday = toDateString(d);
+      let moved = 0;
+      state.workoutHistory.forEach((h) => {
+        if (h.templateId === 'marche' && h.date === today) {
+          h.date = yesterday;
+          moved += 1;
+        }
+      });
+      if (moved) {
+        state.workoutHistory.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        saveState(state);
+      }
+      return moved;
+    },
     resetProgress() {
       const fresh = getDefaultState();
       saveState(fresh);

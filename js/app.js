@@ -238,7 +238,8 @@ window.AppController = (function createAppController() {
             ${
               plan.did === 'strength'
                 ? `<button type="button" class="btn btn-outline btn-block" data-action="start-workout" data-template-id="mobilite">Mobilité · ≈ ${mobilityMin} min</button>`
-                : ''
+                : `<button type="button" class="btn btn-outline btn-block" data-action="start-workout" data-template-id="${template.id}">Faire la séance ${template.letter} quand même</button>
+                   <button type="button" class="tm-log-link" data-action="walk-move-yesterday">La marche, c’était hier ? Corriger</button>`
             }
             <p class="feed-hint caps">${ICONS.chevronDown} Le programme</p>
           </div>
@@ -1602,6 +1603,10 @@ window.AppController = (function createAppController() {
         startWalk(actionBtn.getAttribute('data-walk-program'));
       } else if (action === 'walk-log') {
         logWalk(window.AppData.WALK_TARGET_MIN);
+      } else if (action === 'walk-move-yesterday') {
+        const moved = window.AppStorage.moveTodayWalksToYesterday();
+        renderAll();
+        showToast(moved ? 'Marche déplacée à hier' : 'Aucune marche aujourd’hui');
       } else if (action === 'walk-begin') {
         beginWalk(false);
       } else if (action === 'walk-toggle') {
