@@ -1302,3 +1302,8 @@ ul {
 #workout-player-overlay .player-bottom {
   margin-top: 8px;
 }
+
+/* Bandeau « change de côté » : laisse la place au rail de droite */
+#workout-player-overlay .walk-alert {
+  margin-right: 64px;
+}

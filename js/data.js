@@ -96,7 +96,11 @@ window.AppData = (function createAppData() {
       category: 'echauffement',
       muscles: 'Épaules',
       mode: 'timer',
-      cues: ['Bras tendus à l’horizontale', 'Petits cercles, puis plus grands', 'Changez de sens au bip'],
+      cues: [
+        'Debout, pieds largeur de bassin, bras tendus sur les côtés à hauteur des épaules.',
+        'Fais de petits cercles vers l’avant, puis agrandis-les peu à peu.',
+        'Au bip de mi-temps, tourne dans l’autre sens.'
+      ],
       levels: { 1: { label: 'Cercles de bras', photo: 'arm-circles', base: 30 } }
     },
     {
@@ -105,7 +109,12 @@ window.AppData = (function createAppData() {
       category: 'echauffement',
       muscles: 'Colonne • Dos',
       mode: 'timer',
-      cues: ['À quatre pattes, mains sous les épaules', 'Expirez en arrondissant le dos', 'Inspirez en creusant doucement'],
+      cues: [
+        'À quatre pattes : mains sous les épaules, genoux sous les hanches.',
+        'En soufflant, arrondis le dos vers le plafond et rentre le menton.',
+        'En inspirant, creuse doucement le dos et regarde devant toi.',
+        'Enchaîne lentement, au rythme de ta respiration.'
+      ],
       levels: { 1: { label: 'Dos rond, dos creux', photo: 'cat-stretch', base: 30 } }
     },
     {
@@ -114,18 +123,26 @@ window.AppData = (function createAppData() {
       category: 'echauffement',
       muscles: 'Hanches',
       mode: 'timer',
-      cues: ['Mains sur les hanches, genoux souples', 'Grands cercles lents', 'Changez de sens au bip'],
+      cues: [
+        'Debout, pieds écartés largeur d’épaules, mains sur les hanches, genoux souples.',
+        'Dessine de grands cercles avec le bassin ; le haut du corps bouge le moins possible.',
+        'Au bip de mi-temps, change de sens.'
+      ],
       levels: { 1: { label: 'Cercles de hanches', photo: 'standing-hip-circles', base: 30 } }
     },
     {
       id: 'inchworm',
       name: 'Chenille',
-      // Sujet décentré sur la photo : cadrage des vignettes portrait
-      focus: '72% 50%',
       category: 'echauffement',
       muscles: 'Ischios • Épaules',
       mode: 'timer',
-      cues: ['Penchez-vous, mains au sol', 'Marchez avec les mains jusqu’à la planche', 'Revenez en marchant, genoux pliés si besoin'],
+      focus: '72% 50%',
+      cues: [
+        'Debout, penche-toi et pose les mains au sol devant les pieds (plie les genoux si besoin).',
+        'Avance les mains l’une après l’autre jusqu’à la position de pompe.',
+        'Reviens en marchant avec les mains vers les pieds, puis redresse-toi.',
+        'Recommence sans te presser.'
+      ],
       levels: { 1: { label: 'Chenille', photo: 'inchworm', base: 30 } }
     },
     {
@@ -134,8 +151,14 @@ window.AppData = (function createAppData() {
       category: 'echauffement',
       muscles: 'Hanches • Dos',
       mode: 'timer',
-      cues: ['Grande fente, main au sol', 'Ouvrez l’autre bras vers le plafond', 'Changez de côté au bip'],
-      levels: { 1: { label: 'Fente et rotation', photo: 'worlds-greatest-stretch', base: 30 } }
+      perSide: true,
+      cues: [
+        'Fais un grand pas en avant avec la jambe droite et descends en fente (genou arrière au sol si besoin).',
+        'Pose la main gauche au sol, à l’intérieur du pied droit.',
+        'Tourne le buste et lève le bras droit vers le plafond en le suivant du regard, puis redescends. Répète.',
+        'Pendant la pause « change de côté », inverse jambes et bras.'
+      ],
+      levels: { 1: { label: 'Fente et rotation', photo: 'worlds-greatest-stretch', base: 20 } }
     },
 
     // --- Bloc principal ---
@@ -145,11 +168,16 @@ window.AppData = (function createAppData() {
       category: 'jambes',
       muscles: 'Cuisses • Fessiers',
       mode: 'reps',
-      cues: ['Pieds largeur d’épaules', 'Fesses en arrière, dos droit', 'Poussez dans les talons pour remonter'],
+      cues: [
+        'Debout, pieds un peu plus larges que les hanches, pointes légèrement vers l’extérieur.',
+        'Pousse les fesses en arrière comme pour t’asseoir sur une chaise, dos droit, talons au sol.',
+        'Descends tant que tu restes à l’aise, genoux dans l’axe des pieds.',
+        'Pousse dans les talons pour remonter.'
+      ],
       levels: {
-        1: { label: 'Demi-squat', photo: 'bodyweight-squat', base: 10 },
-        2: { label: 'Squat complet', photo: 'bodyweight-squat', base: 12 },
-        3: { label: 'Squat sauté', photo: 'freehand-jump-squat', base: 10 }
+        1: { label: 'Demi-squat : descends à mi-hauteur', photo: 'bodyweight-squat', base: 10 },
+        2: { label: 'Squat complet : cuisses parallèles au sol', photo: 'bodyweight-squat', base: 12 },
+        3: { label: 'Squat sauté : saute en remontant, atterris en douceur', photo: 'freehand-jump-squat', base: 10 }
       }
     },
     {
@@ -159,11 +187,16 @@ window.AppData = (function createAppData() {
       muscles: 'Cuisses • Fessiers',
       mode: 'reps',
       perSide: true,
-      cues: ['Buste droit, regard devant', 'Genou avant au-dessus de la cheville', 'Genou arrière vers le sol, sans le cogner'],
+      cues: [
+        'Debout, mains sur les hanches, buste droit.',
+        'Écarte les pieds d’un grand pas : une jambe devant, l’autre derrière sur la pointe du pied.',
+        'Descends tout droit, comme un ascenseur : le genou arrière va vers le sol sans le toucher, le genou avant reste au-dessus de la cheville.',
+        'Remonte en poussant dans le talon avant. Le nombre indiqué est par jambe.'
+      ],
       levels: {
-        1: { label: 'Fente sur place', photo: 'split-squats', base: 8 },
-        2: { label: 'Fente arrière', photo: 'crossover-reverse-lunge', base: 10 },
-        3: { label: 'Fente marchée', photo: 'bodyweight-walking-lunge', base: 12 }
+        1: { label: 'Fente sur place : pieds fixes, tu montes et descends, puis tu changes de jambe', photo: 'bodyweight-walking-lunge', base: 8 },
+        2: { label: 'Fente avant alternée : un pas en avant, descends, reviens, change de jambe', photo: 'bodyweight-walking-lunge', base: 10 },
+        3: { label: 'Fente sautée : en bas, saute et inverse les jambes en l’air', photo: 'split-jump', base: 8 }
       }
     },
     {
@@ -172,11 +205,16 @@ window.AppData = (function createAppData() {
       category: 'jambes',
       muscles: 'Fessiers • Ischios',
       mode: 'reps',
-      cues: ['Sur le dos, pieds à plat près des fesses', 'Montez le bassin en serrant les fessiers', 'Redescendez lentement'],
+      cues: [
+        'Allongé sur le dos, genoux pliés, pieds à plat près des fesses, bras le long du corps.',
+        'Serre les fessiers et monte le bassin jusqu’à former une ligne genoux-hanches-épaules.',
+        'Tiens une seconde en haut, sans creuser le bas du dos.',
+        'Redescends lentement.'
+      ],
       levels: {
-        1: { label: 'Bascule du bassin', photo: 'pelvic-tilt-into-bridge', base: 10 },
-        2: { label: 'Pont fessier', photo: 'butt-lift-bridge', base: 12 },
-        3: { label: 'Pont sur une jambe', photo: 'single-leg-glute-bridge', base: 8, perSide: true }
+        1: { label: 'Bascule du bassin : petite montée, on décolle juste les fesses', photo: 'pelvic-tilt-into-bridge', base: 10 },
+        2: { label: 'Pont fessier : bassin bien haut', photo: 'butt-lift-bridge', base: 12 },
+        3: { label: 'Pont sur une jambe : l’autre jambe tendue en l’air', photo: 'single-leg-glute-bridge', base: 8, perSide: true }
       }
     },
     {
@@ -185,11 +223,16 @@ window.AppData = (function createAppData() {
       category: 'haut',
       muscles: 'Pectoraux • Bras',
       mode: 'reps',
-      cues: ['Mains un peu plus larges que les épaules', 'Corps gainé en une seule ligne', 'Descendez la poitrine, pas les hanches'],
+      cues: [
+        'Mains au sol (ou sur l’appui) un peu plus larges que les épaules.',
+        'Corps gainé en ligne droite de la tête aux talons, fessiers serrés.',
+        'Plie les coudes vers l’arrière pour amener la poitrine près de l’appui.',
+        'Pousse pour remonter, sans laisser tomber les hanches.'
+      ],
       levels: {
-        1: { label: 'Mains sur une chaise ou le canapé', photo: 'incline-push-up', base: 8 },
-        2: { label: 'Pompes au sol', photo: 'pushups', base: 8 },
-        3: { label: 'Pieds surélevés', photo: 'push-ups-with-feet-elevated', base: 8 }
+        1: { label: 'Mains sur une chaise ou le canapé (plus c’est haut, plus c’est facile)', photo: 'incline-push-up', base: 8 },
+        2: { label: 'Pompes au sol (sur les genoux si besoin)', photo: 'pushups', base: 8 },
+        3: { label: 'Pieds surélevés sur une chaise', photo: 'push-ups-with-feet-elevated', base: 8 }
       }
     },
     {
@@ -198,11 +241,16 @@ window.AppData = (function createAppData() {
       category: 'haut',
       muscles: 'Dos • Épaules',
       mode: 'reps',
-      cues: ['À plat ventre, bras devant', 'Décollez la poitrine et les bras, regard au sol', 'Redescendez sans relâcher d’un coup'],
+      cues: [
+        'Allongé sur le ventre, bras tendus devant toi, front vers le sol.',
+        'Décolle la poitrine et les bras de quelques centimètres en serrant le haut du dos.',
+        'Garde la nuque dans l’alignement : regarde le sol, pas devant toi.',
+        'Redescends doucement et recommence.'
+      ],
       levels: {
-        1: { label: 'Bras seuls', photo: 'superman', base: 10 },
-        2: { label: 'Bras et jambes', photo: 'superman', base: 12 },
-        3: { label: 'Position tenue', photo: 'superman', base: 30, mode: 'timer' }
+        1: { label: 'Bras seuls : les jambes restent au sol', photo: 'superman', base: 10 },
+        2: { label: 'Bras et jambes décollés ensemble', photo: 'superman', base: 12 },
+        3: { label: 'Position haute tenue', photo: 'superman', base: 30, mode: 'timer' }
       }
     },
     {
@@ -211,11 +259,16 @@ window.AppData = (function createAppData() {
       category: 'core',
       muscles: 'Abdos • Épaules',
       mode: 'timer',
-      cues: ['Coudes sous les épaules', 'Fessiers serrés, bassin aligné', 'Respirez calmement'],
+      cues: [
+        'Avant-bras au sol, coudes sous les épaules.',
+        'Jambes tendues sur la pointe des pieds (genoux au sol au niveau 1).',
+        'Corps droit : serre les fessiers et rentre le nombril, ne lève pas les fesses.',
+        'Respire calmement jusqu’au bip de fin.'
+      ],
       levels: {
         1: { label: 'Sur les genoux', photo: 'plank', base: 20 },
-        2: { label: 'Planche', photo: 'plank', base: 30 },
-        3: { label: 'Pompe + planche latérale', photo: 'push-up-to-side-plank', base: 6, mode: 'reps' }
+        2: { label: 'Sur les pieds', photo: 'plank', base: 30 },
+        3: { label: 'Pompe puis planche sur le côté, en alternant', photo: 'push-up-to-side-plank', base: 6, mode: 'reps' }
       }
     },
     {
@@ -224,11 +277,16 @@ window.AppData = (function createAppData() {
       category: 'core',
       muscles: 'Abdos profonds',
       mode: 'reps',
-      cues: ['Sur le dos, bas du dos collé au sol', 'Bras vers le plafond, genoux à 90°', 'Allongez bras et jambe opposés'],
+      cues: [
+        'Allongé sur le dos, bras tendus vers le plafond, genoux pliés à 90° au-dessus des hanches.',
+        'Plaque le bas du dos au sol et garde-le collé du début à la fin.',
+        'Allonge lentement un bras derrière la tête et la jambe opposée vers l’avant, sans toucher le sol.',
+        'Reviens au centre et fais l’autre côté. Chaque côté compte pour une répétition.'
+      ],
       levels: {
-        1: { label: 'Jambes seules', photo: 'dead-bug', base: 8 },
-        2: { label: 'Bras et jambe opposés', photo: 'dead-bug', base: 10 },
-        3: { label: 'Descente lente (3 s)', photo: 'dead-bug', base: 10 }
+        1: { label: 'Jambes seules : les bras restent vers le plafond', photo: 'dead-bug', base: 8 },
+        2: { label: 'Bras et jambe opposés ensemble', photo: 'dead-bug', base: 10 },
+        3: { label: 'Très lent : 3 secondes pour allonger', photo: 'dead-bug', base: 10 }
       }
     },
     {
@@ -237,11 +295,17 @@ window.AppData = (function createAppData() {
       category: 'core',
       muscles: 'Obliques • Hanches',
       mode: 'timer',
-      cues: ['Coude sous l’épaule', 'Hanches hautes, corps aligné', 'Changez de côté au bip'],
+      perSide: true,
+      cues: [
+        'Allongé sur le côté, coude sous l’épaule, jambes l’une sur l’autre.',
+        'Soulève les hanches pour que le corps forme une ligne droite.',
+        'Tiens sans laisser tomber les hanches, respire.',
+        'Pendant la pause « change de côté », tourne-toi sur l’autre coude.'
+      ],
       levels: {
-        1: { label: 'Sur les genoux', photo: 'side-bridge', base: 20 },
-        2: { label: 'Jambes tendues', photo: 'side-bridge', base: 30 },
-        3: { label: 'Tenue longue', photo: 'side-bridge', base: 40 }
+        1: { label: 'Genoux pliés au sol', photo: 'side-bridge', base: 15 },
+        2: { label: 'Jambes tendues', photo: 'side-bridge', base: 20 },
+        3: { label: 'Jambes tendues, tenue longue', photo: 'side-bridge', base: 30 }
       }
     },
     {
@@ -250,11 +314,15 @@ window.AppData = (function createAppData() {
       category: 'cardio',
       muscles: 'Cardio • Gainage',
       mode: 'timer',
-      cues: ['Position de pompe, mains sous les épaules', 'Ramenez un genou après l’autre', 'Gardez le dos plat'],
+      cues: [
+        'En position de pompe, mains sous les épaules, corps droit.',
+        'Ramène un genou vers la poitrine, puis repose le pied.',
+        'Alterne les jambes à un rythme régulier, dos plat, fesses basses.'
+      ],
       levels: {
-        1: { label: 'Grimpeur lent', photo: 'mountain-climbers', base: 25 },
-        2: { label: 'Grimpeur', photo: 'mountain-climbers', base: 30 },
-        3: { label: 'Saut en étoile', photo: 'star-jump', base: 30 }
+        1: { label: 'Lent, un pied après l’autre', photo: 'mountain-climbers', base: 25 },
+        2: { label: 'Rythme soutenu', photo: 'mountain-climbers', base: 30 },
+        3: { label: 'Saut en étoile : saute en écartant bras et jambes', photo: 'star-jump', base: 30 }
       }
     },
 
@@ -265,8 +333,14 @@ window.AppData = (function createAppData() {
       category: 'etirement',
       muscles: 'Avant des hanches',
       mode: 'timer',
-      cues: ['Un genou au sol, l’autre pied devant', 'Avancez le bassin doucement', 'Changez de côté au bip'],
-      levels: { 1: { label: 'Étirement du psoas', photo: 'kneeling-hip-flexor', base: 40 } }
+      perSide: true,
+      cues: [
+        'Un genou au sol (sur un coussin), l’autre pied devant, genou plié à 90°.',
+        'Buste droit, serre le fessier de la jambe arrière.',
+        'Avance doucement le bassin jusqu’à sentir l’étirement à l’avant de la hanche arrière.',
+        'Pendant la pause « change de côté », inverse les jambes.'
+      ],
+      levels: { 1: { label: 'Étirement du psoas', photo: 'kneeling-hip-flexor', base: 30 } }
     },
     {
       id: 'childs-pose',
@@ -274,7 +348,11 @@ window.AppData = (function createAppData() {
       category: 'etirement',
       muscles: 'Dos • Épaules',
       mode: 'timer',
-      cues: ['Assis sur les talons', 'Allongez les bras loin devant', 'Respirez lentement dans le dos'],
+      cues: [
+        'À genoux, assieds-toi sur les talons, genoux un peu écartés.',
+        'Penche-toi en avant, allonge les bras loin devant, front vers le sol.',
+        'Relâche les épaules et respire lentement.'
+      ],
       levels: { 1: { label: 'Posture de l’enfant', photo: 'childs-pose', base: 40 } }
     },
     {
@@ -283,8 +361,14 @@ window.AppData = (function createAppData() {
       category: 'etirement',
       muscles: 'Arrière des cuisses',
       mode: 'timer',
-      cues: ['Sur le dos, une jambe vers le plafond', 'Tenez derrière la cuisse', 'Changez de jambe au bip'],
-      levels: { 1: { label: 'Étirement des ischios', photo: '90-90-hamstring', base: 40 } }
+      perSide: true,
+      cues: [
+        'Allongé sur le dos, une jambe pliée, pied au sol.',
+        'Lève l’autre jambe vers le plafond et tiens l’arrière de la cuisse avec les deux mains.',
+        'Tends la jambe doucement jusqu’à sentir l’étirement, jamais jusqu’à la douleur.',
+        'Pendant la pause « change de côté », change de jambe.'
+      ],
+      levels: { 1: { label: 'Étirement des ischios', photo: '90-90-hamstring', base: 30 } }
     },
     {
       id: 'spinal',
@@ -292,8 +376,14 @@ window.AppData = (function createAppData() {
       category: 'etirement',
       muscles: 'Dos • Taille',
       mode: 'timer',
-      cues: ['Assis bien droit', 'Tournez le buste lentement', 'Changez de côté au bip'],
-      levels: { 1: { label: 'Torsion assise', photo: 'spinal-stretch', base: 40 } }
+      perSide: true,
+      cues: [
+        'Assis bien droit, au sol ou sur une chaise.',
+        'Tourne lentement le buste d’un côté, en t’aidant d’une main sur le genou ou le dossier.',
+        'Garde le dos long et respire dans la torsion.',
+        'Pendant la pause « change de côté », tourne-toi de l’autre côté.'
+      ],
+      levels: { 1: { label: 'Torsion assise', photo: 'spinal-stretch', base: 25 } }
     }
   ];
 
@@ -421,7 +511,7 @@ window.AppData = (function createAppData() {
   }
 
   function formatTarget(value, lv) {
-    if (lv.mode === 'timer') return `${value} s`;
+    if (lv.mode === 'timer') return lv.perSide ? `${value} s / côté` : `${value} s`;
     return lv.perSide ? `${value} rép. / côté` : `${value} rép.`;
   }
 
@@ -512,6 +602,9 @@ window.AppData = (function createAppData() {
     return { index: program.segments.length, segment: null, next: null, remainingS: 0, done: true };
   }
 
+  // Pausa para cambiar de lado en los ejercicios cronometrados «por lado»
+  const SIDE_SWITCH_SECONDS = 5;
+
   const REST_BETWEEN_EXERCISES = 25;
   const REST_BETWEEN_ROUNDS = 60;
   const TRANSITION_SECONDS = 10;
@@ -521,7 +614,8 @@ window.AppData = (function createAppData() {
       const ex = EXERCISES.find((e) => e.id === id);
       const lv = getExerciseLevel(ex, level);
       const target = computeTarget(ex, level, position.volumeFactor, intensityMultiplier);
-      return lv.mode === 'timer' ? target : target * 3.5 * (lv.perSide ? 2 : 1);
+      if (lv.mode === 'timer') return lv.perSide ? target * 2 + SIDE_SWITCH_SECONDS : target;
+      return target * 3.5 * (lv.perSide ? 2 : 1);
     };
     const rounds = template.optional ? 1 : position.rounds;
     let total = 0;
@@ -548,6 +642,7 @@ window.AppData = (function createAppData() {
     getWalkSegmentAt,
     REST_BETWEEN_EXERCISES,
     REST_BETWEEN_ROUNDS,
+    SIDE_SWITCH_SECONDS,
     TRANSITION_SECONDS,
     getExerciseMedia,
     getProgramPosition,

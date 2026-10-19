@@ -81,7 +81,11 @@ window.WorkoutEngine = (function createWorkoutEngine() {
         mode: lv.mode,
         targetValue,
         remainingSeconds: lv.mode === 'timer' ? targetValue : 0,
-        elapsedSeconds: 0
+        elapsedSeconds: 0,
+        // Ejercicios cronometrados «por lado»: lado 1, pausa para cambiar, lado 2
+        perSideTimer: lv.mode === 'timer' && lv.perSide,
+        side: 1,
+        switchSeconds: 0
       },
       meta
     );
@@ -183,6 +187,21 @@ window.WorkoutEngine = (function createWorkoutEngine() {
         return;
       }
 
+      // Pausa para cambiar de lado: el cronómetro del lado 2 no arranca hasta el final
+      if (currentStep.phase === 'switching') {
+        currentStep.switchSeconds -= 1;
+        if (currentStep.switchSeconds > 0) {
+          if (currentStep.switchSeconds <= 3) window.AudioFeedback.playCountdownTick(currentStep.switchSeconds);
+          notifyUpdate();
+        } else {
+          currentStep.phase = 'active';
+          currentStep.remainingSeconds = currentStep.targetValue;
+          window.AudioFeedback.playStartPhase();
+          notifyUpdate();
+        }
+        return;
+      }
+
       activeSession.totalElapsedSeconds += 1;
 
       if (currentStep.stepType === 'rest' || currentStep.mode === 'timer') {
@@ -190,6 +209,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
 
         if (
           currentStep.stepType === 'work' &&
+          !currentStep.perSideTimer &&
           currentStep.targetValue >= 20 &&
           currentStep.remainingSeconds === Math.floor(currentStep.targetValue / 2)
         ) {
@@ -199,6 +219,15 @@ window.WorkoutEngine = (function createWorkoutEngine() {
         }
 
         if (currentStep.remainingSeconds === 0) {
+          if (currentStep.stepType === 'work' && currentStep.perSideTimer && currentStep.side === 1) {
+            currentStep.side = 2;
+            currentStep.phase = 'switching';
+            currentStep.switchSeconds = window.AppData.SIDE_SWITCH_SECONDS;
+            window.AudioFeedback.playStepReady();
+            window.AudioFeedback.say('Change de côté');
+            notifyUpdate();
+            return;
+          }
           advanceStep();
           return;
         }
@@ -315,7 +344,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       const currentStep = activeSession.steps[activeSession.currentStepIndex];
       if (!currentStep) return;
 
-      if (currentStep.phase === 'active' || currentStep.phase === 'countdown') {
+      if (currentStep.phase === 'active' || currentStep.phase === 'countdown' || currentStep.phase === 'switching') {
         // Se recuerda la fase previa para reanudar la cuenta atrás si se pausó durante ella
         currentStep.phaseBeforePause = currentStep.phase;
         currentStep.phase = 'paused';
@@ -336,6 +365,7 @@ window.WorkoutEngine = (function createWorkoutEngine() {
       clearTimer();
       settlePause();
       currentStep.remainingSeconds = currentStep.targetValue;
+      currentStep.side = 1;
       currentStep.phase = 'ready';
       notifyUpdate();
     },
@@ -388,6 +418,8 @@ window.WorkoutEngine = (function createWorkoutEngine() {
           step.mode = fresh.mode;
           step.targetValue = fresh.targetValue;
           step.remainingSeconds = fresh.remainingSeconds;
+          step.perSideTimer = fresh.perSideTimer;
+          step.side = 1;
         } else if (step.stepType === 'rest' && step.nextExercise.id === currentStep.exercise.id) {
           step.nextLevel = window.AppData.getExerciseLevel(step.nextExercise, level);
         }

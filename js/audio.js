@@ -151,6 +151,20 @@ window.AudioFeedback = (function createAudioFeedback() {
       }
     },
 
+    // Aviso hablado corto durante la sesión (respeta el modo silencio)
+    say(text) {
+      if (isMuted || !text || !('speechSynthesis' in window)) return;
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 1.05;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      } catch (_) {
+        // Síntesis de voz no disponible
+      }
+    },
+
     // Toque táctil sutil de madera/cristal al pulsar controles importantes
     playTap() {
       triggerHaptic(10);

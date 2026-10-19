@@ -494,6 +494,7 @@ window.AppController = (function createAppController() {
       step.phase,
       step.selectedVariantLevel,
       step.targetValue,
+      step.side,
       window.AppStorage.getState().soundMuted
     ].join('|');
   }
@@ -511,6 +512,8 @@ window.AppController = (function createAppController() {
     if (remainingEl) remainingEl.textContent = String(step.remainingSeconds);
     const prepEl = overlay.querySelector('[data-live="prep"]');
     if (prepEl) prepEl.textContent = String(step.prepSeconds);
+    const switchEl = overlay.querySelector('[data-live="switch"]');
+    if (switchEl) switchEl.textContent = String(step.switchSeconds);
     const ratioEl = overlay.querySelector('[data-live="ratio"]');
     if (ratioEl) ratioEl.style.setProperty('--ratio', String(stepRatio(step)));
   }
@@ -624,7 +627,21 @@ window.AppController = (function createAppController() {
     let countHtml = '';
     let actionHtml = '';
 
-    if (step.phase === 'countdown') {
+    const paused = step.phase === 'paused';
+    const sideNote = step.perSideTimer ? `<p class="caps count-note">Côté ${step.side}/2</p>` : '';
+
+    if (step.phase === 'switching' || (paused && step.phaseBeforePause === 'switching')) {
+      countHtml = `
+        <p class="walk-alert">Change de côté</p>
+        <div class="count">
+          <span class="count-num" data-live="switch">${step.switchSeconds}</span>
+          <span class="count-unit">s</span>
+        </div>
+      `;
+      actionHtml = paused
+        ? `<button type="button" class="btn btn-primary btn-block" data-action="toggle-pause">${ICONS.play}<span>Reprendre</span></button>`
+        : `<button type="button" class="btn btn-outline btn-block" data-action="toggle-pause">${ICONS.pause}<span>Pause</span></button>`;
+    } else if (step.phase === 'countdown') {
       countHtml = `
         <div class="count">
           <span class="count-num" data-live="prep">${step.prepSeconds}</span>
@@ -643,6 +660,7 @@ window.AppController = (function createAppController() {
           <span class="count-num">${step.targetValue}</span>
           <span class="count-unit">s</span>
         </div>
+        ${step.perSideTimer ? `<p class="caps count-note">Par côté · ${D().SIDE_SWITCH_SECONDS} s pour changer</p>` : ''}
       `;
       actionHtml = `
         <div class="btn-row">
@@ -659,14 +677,19 @@ window.AppController = (function createAppController() {
           <span class="count-num" data-live="remaining">${step.remainingSeconds}</span>
           <span class="count-unit">s</span>
         </div>
+        ${sideNote}
         <div class="count-track"><div class="count-fill" data-live="ratio" style="--ratio: ${stepRatio(step)}"></div></div>
       `;
-      actionHtml = `
-        <button type="button" class="btn btn-primary btn-block" data-action="skip-step">
-          ${ICONS.check}
-          <span>Suivant</span>
-        </button>
-      `;
+      // En pause, le gros bouton reprend : passer l’exercice devient le petit bouton
+      actionHtml = paused
+        ? `<div class="btn-row">
+            <button type="button" class="btn btn-outline" data-action="skip-step">Passer</button>
+            <button type="button" class="btn btn-primary" data-action="toggle-pause">${ICONS.play}<span>Reprendre</span></button>
+          </div>`
+        : `<button type="button" class="btn btn-primary btn-block" data-action="skip-step">
+            ${ICONS.check}
+            <span>Suivant</span>
+          </button>`;
     } else {
       countHtml = `
         <div class="count">
@@ -704,7 +727,12 @@ window.AppController = (function createAppController() {
         ${ICONS.info}
         <span>Infos</span>
       </button>`,
-      soundRailButton(state)
+      session.currentStepIndex > 0
+        ? `<button type="button" class="rail-btn" data-action="prev-step" aria-label="Revenir à l’exercice précédent">
+            ${ICONS.chevronLeft}
+            <span>Retour</span>
+          </button>`
+        : ''
     ].join('');
 
     return `
@@ -1626,6 +1654,9 @@ window.AppController = (function createAppController() {
         closeWalkWithConfirm(false);
       } else if (action === 'begin-exercise-timer') {
         window.WorkoutEngine.beginCurrentExerciseTimer();
+      } else if (action === 'prev-step') {
+        window.AudioFeedback.playTap();
+        window.WorkoutEngine.stepPrevExercise();
       } else if (action === 'cycle-step-variant') {
         window.AudioFeedback.playTap();
         cycleStepVariant();

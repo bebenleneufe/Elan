@@ -3,7 +3,7 @@
  * respaldo sin conexión) para que cualquier despliegue en GitHub Pages aparezca inmediatamente
  * en el móvil sin quedar atrapado en una versión antigua de la caché.
  */
-const SHELL_CACHE = 'elan30-shell-v16';
+const SHELL_CACHE = 'elan30-shell-v18';
 const FONT_CACHE = 'elan30-fonts-v1';
 const KNOWN_CACHES = new Set([SHELL_CACHE, FONT_CACHE]);
 
@@ -38,8 +38,6 @@ const SHELL_FILES = [
   './assets/photos/cat-stretch/1.jpg',
   './assets/photos/childs-pose/0.jpg',
   './assets/photos/childs-pose/1.jpg',
-  './assets/photos/crossover-reverse-lunge/0.jpg',
-  './assets/photos/crossover-reverse-lunge/1.jpg',
   './assets/photos/dead-bug/0.jpg',
   './assets/photos/dead-bug/1.jpg',
   './assets/photos/freehand-jump-squat/0.jpg',
@@ -68,8 +66,8 @@ const SHELL_FILES = [
   './assets/photos/single-leg-glute-bridge/1.jpg',
   './assets/photos/spinal-stretch/0.jpg',
   './assets/photos/spinal-stretch/1.jpg',
-  './assets/photos/split-squats/0.jpg',
-  './assets/photos/split-squats/1.jpg',
+  './assets/photos/split-jump/0.jpg',
+  './assets/photos/split-jump/1.jpg',
   './assets/photos/standing-hip-circles/0.jpg',
   './assets/photos/standing-hip-circles/1.jpg',
   './assets/photos/star-jump/0.jpg',
