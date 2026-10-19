@@ -1279,3 +1279,26 @@ ul {
 .tm-auto[aria-pressed='true'] {
   color: var(--sand);
 }
+
+/* Lecteur de séance : la photo démarre sous la barre du haut, les commandes restent en bas */
+#workout-player-overlay .stage {
+  justify-content: flex-start;
+  padding-top: calc(var(--safe-top) + 76px);
+}
+
+/* La photo occupe tout l’espace libre entre le haut et les commandes, centrée, sans recadrage */
+#workout-player-overlay .media-frame {
+  flex: 1 1 auto;
+  aspect-ratio: auto;
+  min-height: min(50vw, 240px);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+#workout-player-overlay .media-frame .photo-flip img {
+  object-fit: contain;
+}
+
+#workout-player-overlay .player-bottom {
+  margin-top: 8px;
+}
