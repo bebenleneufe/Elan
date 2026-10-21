@@ -1288,9 +1288,8 @@ ul {
 
 /* La photo occupe tout l’espace libre entre le haut et les commandes, centrée, sans recadrage */
 #workout-player-overlay .media-frame {
-  flex: 1 1 auto;
-  aspect-ratio: auto;
-  min-height: min(50vw, 240px);
+  flex: none;
+  aspect-ratio: 3 / 2;
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -1306,4 +1305,12 @@ ul {
 /* Bandeau « change de côté » : laisse la place au rail de droite */
 #workout-player-overlay .walk-alert {
   margin-right: 64px;
+}
+
+/* App installée sur téléphone : Android peut dessiner la page sous la barre de navigation
+   sans le signaler ; on garde toujours au moins 48 px libres en bas */
+@media (display-mode: standalone) and (pointer: coarse) {
+  :root {
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), 48px);
+  }
 }

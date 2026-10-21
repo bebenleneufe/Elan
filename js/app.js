@@ -1723,6 +1723,31 @@ window.AppController = (function createAppController() {
 
   return {
     init() {
+      // Una versión antigua de la página (caché del sistema o del navegador) no tiene .app-frame:
+      // se vacían nuestras cachés y se recarga una vez desde la red.
+      if (!document.querySelector('.app-frame')) {
+        let alreadyTried = false;
+        try {
+          alreadyTried = window.sessionStorage.getItem('elan-heal') === '1';
+          window.sessionStorage.setItem('elan-heal', '1');
+        } catch (_) {
+          // sessionStorage indisponible
+        }
+        if (!alreadyTried) {
+          const clear = 'caches' in window
+            ? caches.keys().then((names) => Promise.all(names.filter((n) => n.startsWith('elan30-')).map((n) => caches.delete(n))))
+            : Promise.resolve();
+          clear.finally(() => {
+            window.location.replace(`${window.location.pathname}?fresh=${Date.now()}`);
+          });
+        }
+        return;
+      }
+      try {
+        window.sessionStorage.removeItem('elan-heal');
+      } catch (_) {
+        // sessionStorage indisponible
+      }
       window.WorkoutEngine.subscribe((session) => {
         renderWorkoutOverlay(session);
       });

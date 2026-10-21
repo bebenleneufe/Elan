@@ -3,7 +3,7 @@
  * respaldo sin conexión) para que cualquier despliegue en GitHub Pages aparezca inmediatamente
  * en el móvil sin quedar atrapado en una versión antigua de la caché.
  */
-const SHELL_CACHE = 'elan30-shell-v18';
+const SHELL_CACHE = 'elan30-shell-v19';
 const FONT_CACHE = 'elan30-fonts-v1';
 const KNOWN_CACHES = new Set([SHELL_CACHE, FONT_CACHE]);
 
@@ -118,7 +118,7 @@ async function removeOutdatedCaches() {
     const cacheNames = await caches.keys();
     await Promise.all(
       cacheNames
-        .filter((name) => !KNOWN_CACHES.has(name))
+        .filter((name) => name.startsWith('elan30-') && !KNOWN_CACHES.has(name))
         .map((name) => caches.delete(name))
     );
     await self.clients.claim();
