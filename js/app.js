@@ -279,6 +279,15 @@ window.AppController = (function createAppController() {
             ${ICONS.play}
             <span>Commencer</span>
           </button>
+          <div class="session-switch">
+            ${
+              state.programSessionIndex > 0
+                ? `<button type="button" data-action="session-prev">${ICONS.chevronLeft} Séance ${data.getTemplateById(data.getProgramPosition(state.programSessionIndex - 1).templateId).letter}</button>`
+                : '<span></span>'
+            }
+            <span class="caps">Changer de séance</span>
+            <button type="button" data-action="session-next">Séance ${data.getTemplateById(data.getProgramPosition(state.programSessionIndex + 1).templateId).letter} ${ICONS.chevronRight}</button>
+          </div>
           <p class="feed-hint caps">${ICONS.chevronDown} Le détail</p>
         </div>
       </article>
@@ -829,6 +838,7 @@ window.AppController = (function createAppController() {
     const session = window.WorkoutEngine.getActiveSession();
     if (!session) return;
     const { state, levelUp, cycleCompleted } = window.AppStorage.recordCompletedWorkout({
+      sessionId: session.startedAt,
       templateId: session.template.id,
       title: session.template.title,
       durationMin: window.WorkoutEngine.getActiveMinutes(session),
@@ -1631,6 +1641,12 @@ window.AppController = (function createAppController() {
         startWalk(actionBtn.getAttribute('data-walk-program'));
       } else if (action === 'walk-log') {
         logWalk(window.AppData.WALK_TARGET_MIN);
+      } else if (action === 'session-prev' || action === 'session-next') {
+        window.AudioFeedback.playTap();
+        const st = window.AppStorage.shiftProgramSession(action === 'session-prev' ? -1 : 1);
+        renderAll();
+        const pos = window.AppData.getProgramPosition(st.programSessionIndex);
+        showToast(`Séance ${window.AppData.getTemplateById(pos.templateId).letter} · ${pos.cycleName}, semaine ${pos.weekIndex + 1}`);
       } else if (action === 'walk-move-yesterday') {
         const moved = window.AppStorage.moveTodayWalksToYesterday();
         renderAll();

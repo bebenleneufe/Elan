@@ -200,6 +200,13 @@ window.AppStorage = (function createAppStorage() {
       let levelUp = false;
       let cycleCompleted = false;
 
+      // Una misma sesión (mismo inicio) nunca se cuenta dos veces
+      if (summary.sessionId && state.lastRecordedSessionId === summary.sessionId) {
+        window.AppLogger.info({ sessionId: summary.sessionId }, 'Duplicate session record ignored');
+        return { state, levelUp, cycleCompleted };
+      }
+      if (summary.sessionId) state.lastRecordedSessionId = summary.sessionId;
+
       state.totalWorkouts += 1;
       state.totalMinutes += summary.durationMin;
       state.lastActiveDate = getTodayDateString();
@@ -270,6 +277,13 @@ window.AppStorage = (function createAppStorage() {
       state.workoutHistory = state.workoutHistory.slice(0, HISTORY_LIMIT);
       saveState(state);
       window.AppLogger.info({ durationMin, distanceM: more.distanceM }, 'Walk recorded');
+      return state;
+    },
+    // Choix manuel de la séance du programme (sans toucher à l’historique)
+    shiftProgramSession(delta) {
+      const state = loadState();
+      state.programSessionIndex = Math.max(0, (state.programSessionIndex || 0) + delta);
+      saveState(state);
       return state;
     },
     // Corrige une marche enregistrée le mauvais jour : celles d’aujourd’hui passent à hier
